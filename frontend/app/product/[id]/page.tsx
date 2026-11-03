@@ -1,5 +1,5 @@
 import ProductView from '@/components/ProductView';
-import { getProduct } from '@/lib/api';
+import { getProduct } from '@/lib/api/products';
 
 export const dynamic = 'force-dynamic';
 

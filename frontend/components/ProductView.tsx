@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   sizes,
   toppings,
-  getProductImageUrl,
   formatPrice,
   type Product,
 } from "@/lib/data";
@@ -48,7 +47,7 @@ export default function ProductView({ product }: { product: Product | null }) {
     (sum, tid) => sum + (toppings.find((t) => t.id === tid)?.price ?? 0),
     0
   );
-  const unitPrice = product.basePrice + sizeAdd + toppingAdd;
+  const unitPrice = product.price + sizeAdd + toppingAdd;
 
   function toggle(tid: string) {
     setPicked((prev) =>
@@ -62,11 +61,12 @@ export default function ProductView({ product }: { product: Product | null }) {
       id: `${product.id}-${size}-${picked.join(",")}-${Date.now()}`,
       productId: product.id,
       name: product.name,
-      imageId: product.imageId,
+      imageUrl: product.imageUrl,
       size,
       toppings: picked,
       qty,
       unitPrice,
+      lineTotal: unitPrice * qty,
     };
     dispatch({ type: "ADD_TO_CART", item });
     setAdded(true);
@@ -86,7 +86,7 @@ export default function ProductView({ product }: { product: Product | null }) {
         <div className="md:sticky md:top-24 md:self-start">
           <div className="overflow-hidden rounded-xl bg-secondary">
             <img
-              src={getProductImageUrl(product.imageId, 1000, 1000)}
+              src={product.imageUrl}
               alt={product.name}
               className="aspect-square w-full object-cover"
             />
@@ -108,7 +108,7 @@ export default function ProductView({ product }: { product: Product | null }) {
             {product.description}
           </p>
           <p className="tabular mt-5 text-2xl font-semibold text-accent">
-            {formatPrice(product.basePrice)}
+            {formatPrice(product.price)}
           </p>
 
           <Section title="Kích cỡ">

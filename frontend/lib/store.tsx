@@ -7,20 +7,34 @@ export interface CartItem {
   id: string;
   productId: string;
   name: string;
-  imageId: string;
+  imageUrl: string;
   size: 'S' | 'M' | 'L';
   toppings: string[];
   qty: number;
   unitPrice: number;
+  lineTotal: number;
+}
+
+export interface OrderItem extends Omit<CartItem, 'unitPrice'> {
+  orderId: string;
+}
+
+export interface Payment {
+  id: string;
+  orderId: string;
+  idempotencyKey: string;
+  amount: number;
+  method: string;
 }
 
 export interface Order {
   id: string;
-  items: CartItem[];
+  userId: string;
+  items: OrderItem[];
   total: number;
   status: 'PENDING' | 'PAID' | 'PAYMENT_FAILED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
-  paymentMethod: string;
   createdAt: Date;
+  payment?: Payment;
 }
 
 export interface User {
@@ -58,7 +72,13 @@ function reducer(state: State, action: Action): State {
         return {
           ...state,
           cart: state.cart.map((i) =>
-            i.id === existing.id ? { ...i, qty: i.qty + action.item.qty } : i
+            i.id === existing.id
+              ? {
+                  ...i,
+                  qty: i.qty + action.item.qty,
+                  lineTotal: i.unitPrice * (i.qty + action.item.qty),
+                }
+              : i
           ),
         };
       }
@@ -70,7 +90,9 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         cart: state.cart.map((i) =>
-          i.id === action.id ? { ...i, qty: action.qty } : i
+          i.id === action.id
+            ? { ...i, qty: action.qty, lineTotal: i.unitPrice * action.qty }
+            : i
         ),
       };
     case 'CLEAR_CART':
@@ -87,40 +109,56 @@ function reducer(state: State, action: Action): State {
 const sampleOrders: Order[] = [
   {
     id: 'BL-20260920-001',
+    userId: 'u_1',
     items: [
       {
         id: 'hist-1',
+        orderId: 'BL-20260920-001',
         productId: 'latte',
         name: 'Caffe Latte',
-        imageId: '1541167760496-1628856ab772',
+        imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&auto=format',
         size: 'M',
         toppings: ['cream-foam'],
         qty: 2,
-        unitPrice: 61000,
+        lineTotal: 122000,
       },
     ],
     total: 122000,
     status: 'COMPLETED',
-    paymentMethod: 'MoMo',
+    payment: {
+      id: 'payment-001',
+      orderId: 'BL-20260920-001',
+      idempotencyKey: 'mock-pay-001',
+      amount: 122000,
+      method: 'Ví MoMo',
+    },
     createdAt: new Date('2026-09-20T10:30:00'),
   },
   {
     id: 'BL-20260922-003',
+    userId: 'u_1',
     items: [
       {
         id: 'hist-2',
+        orderId: 'BL-20260922-003',
         productId: 'cold-brew',
         name: 'Cold Brew',
-        imageId: '1461023058943-07fcbe16d735',
+        imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?fit=crop&auto=format',
         size: 'L',
         toppings: [],
         qty: 1,
-        unitPrice: 70000,
+        lineTotal: 70000,
       },
     ],
     total: 70000,
     status: 'READY',
-    paymentMethod: 'Thẻ nội địa',
+    payment: {
+      id: 'payment-002',
+      orderId: 'BL-20260922-003',
+      idempotencyKey: 'mock-pay-002',
+      amount: 70000,
+      method: 'Thẻ nội địa',
+    },
     createdAt: new Date('2026-09-22T14:15:00'),
   },
 ];
@@ -141,7 +179,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     user: null,
   });
 
-  const cartTotal = state.cart.reduce((sum, i) => sum + i.unitPrice * i.qty, 0);
+  const cartTotal = state.cart.reduce((sum, i) => sum + i.lineTotal, 0);
   const cartCount = state.cart.reduce((sum, i) => sum + i.qty, 0);
 
   return (

@@ -1,5 +1,5 @@
 import MenuView from '@/components/MenuView';
-import { getProducts } from '@/lib/api';
+import { getProducts } from '@/lib/api/products';
 
 export const dynamic = 'force-dynamic';
 

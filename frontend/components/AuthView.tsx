@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { getProductImageUrl } from '@/lib/data';
-import { authenticate } from '@/lib/api';
+import { authenticate } from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
 
 export default function AuthPage() {

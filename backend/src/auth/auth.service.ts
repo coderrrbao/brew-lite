@@ -18,7 +18,7 @@ export class AuthService {
       id: 'u_1',
       name: name || email.split('@')[0],
       email,
-      points: 0,
+      loyaltyPoints: 0,
     };
     return { accessToken: 'mock.jwt.token', user };
   }

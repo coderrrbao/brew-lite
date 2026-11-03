@@ -69,18 +69,18 @@ Then open <http://localhost:3000>. The frontend uses
 server-side requests it uses `INTERNAL_API_URL` when set, otherwise it uses
 the public API URL.
 
-The root `.env.example` contains the sample settings for both apps. Copy the
-frontend values into `frontend/.env.local`:
+Copy `frontend/.env.example` to `frontend/.env.local` for the frontend:
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:4000
 INTERNAL_API_URL=http://localhost:4000
 ```
 
-The backend values are `PORT` and `CORS_ORIGIN`. The NestJS app does not load
-`.env` files automatically, so set these variables in the backend process
+The backend sample settings are in `backend/.env.example`. Copy it to
+`backend/.env` for Prisma's `DATABASE_URL`. The NestJS app does not load `.env`
+files automatically, so set `PORT` and `CORS_ORIGIN` in the backend process
 environment when you need to override the defaults. Docker Compose already
-sets the backend port and CORS origin in its service configuration.
+sets these values in its service configuration.
 
 When running in Docker Compose, `INTERNAL_API_URL` is set to
 `http://backend:4000` so the frontend container can reach the API service.
@@ -115,6 +115,31 @@ ownership and payment processing are for demonstration and are not production
 security controls. The frontend also has local fallback data for product
 catalog requests.
 
+## Prisma and PostgreSQL
+
+The backend has a PostgreSQL Prisma schema for users, products, orders, order
+items, payments, and promotions. The API still uses mock data; these Prisma
+models are not yet wired into the API services.
+
+For local development, start PostgreSQL with Docker Compose:
+
+```powershell
+docker compose up -d db
+Set-Location backend
+pnpm install
+pnpm db:validate
+pnpm exec prisma migrate dev
+```
+
+Prisma reads `DATABASE_URL` from `backend/.env`; copy `backend/.env.example`
+there and adjust the URL if needed. The migration command applies the
+checked-in initial migration and generates the Prisma Client in
+`backend/src/generated/prisma`.
+
+To run the API and database in Docker Compose, use `docker compose up --build`.
+The backend container uses the Compose database hostname and starts after
+PostgreSQL is healthy.
+
 ## Project structure
 
 ```text
@@ -125,6 +150,10 @@ test.js                  Standalone Open-Meteo weather-checking script
 BrewLite-CongNghePhanMem.pdf
                          Project brief/reference document
 ```
+
+Frontend API clients are grouped in `frontend/lib/api/` by backend module
+(`auth`, `products`, `orders`, and `payments`). `frontend/lib/api.ts` re-exports
+them as the stable import path used by the app.
 
 ## Useful commands
 

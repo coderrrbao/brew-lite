@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { getProductImageUrl, formatPrice, type Category, type Product } from '@/lib/data';
+import { formatPrice, type Category, type Product } from '@/lib/data';
 import { useStore } from '@/lib/store';
 import { PageShell, PlusIcon, Eyebrow } from './ui';
 
@@ -51,7 +51,7 @@ export default function MenuView({ products }: { products: Product[] }) {
           className="group relative block overflow-hidden rounded-xl bg-secondary"
         >
           <img
-            src={getProductImageUrl(featured.imageId, 900, 720)}
+            src={featured.imageUrl}
             alt={featured.name}
             className="aspect-[5/4] w-full object-cover transition duration-500 group-hover:scale-105"
           />
@@ -62,7 +62,7 @@ export default function MenuView({ products }: { products: Product[] }) {
               </p>
               <p className="font-display text-2xl font-semibold">{featured.name}</p>
             </div>
-            <span className="tabular text-sm font-semibold">{formatPrice(featured.basePrice)}</span>
+            <span className="tabular text-sm font-semibold">{formatPrice(featured.price)}</span>
           </div>
         </Link>
       </section>
@@ -122,7 +122,7 @@ function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative overflow-hidden bg-secondary">
         <img
-          src={getProductImageUrl(product.imageId, 600, 480)}
+          src={product.imageUrl}
           alt={product.name}
           loading="lazy"
           className="aspect-[5/4] w-full object-cover transition duration-500 group-hover:scale-105"
@@ -146,7 +146,7 @@ function ProductCard({ product }: { product: Product }) {
           {product.description}
         </p>
         <div className="mt-auto flex items-center justify-between pt-4">
-          <span className="tabular text-base font-semibold">{formatPrice(product.basePrice)}</span>
+          <span className="tabular text-base font-semibold">{formatPrice(product.price)}</span>
           <span
             aria-hidden="true"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition group-hover:bg-accent"

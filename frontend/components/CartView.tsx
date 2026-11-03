@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { formatPrice, getProductImageUrl, sizes, toppings as toppingDefs } from '@/lib/data';
+import { formatPrice, sizes, toppings as toppingDefs } from '@/lib/data';
 import {
   PageShell,
   StickyBar,
@@ -64,7 +64,7 @@ export default function CartPage() {
               return (
                 <li key={item.id} className={`${cardCls} flex gap-4 p-4`}>
                   <img
-                    src={getProductImageUrl(item.imageId, 200, 200)}
+                    src={item.imageUrl}
                     alt={item.name}
                     className="h-20 w-20 shrink-0 rounded-lg bg-secondary object-cover sm:h-24 sm:w-24"
                   />
@@ -108,7 +108,7 @@ export default function CartPage() {
                           <PlusIcon size={15} />
                         </button>
                       </div>
-                      <span className="tabular font-semibold">{formatPrice(item.unitPrice * item.qty)}</span>
+                      <span className="tabular font-semibold">{formatPrice(item.lineTotal)}</span>
                     </div>
                   </div>
                 </li>

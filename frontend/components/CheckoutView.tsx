@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore, type Order } from '@/lib/store';
-import { formatPrice, getProductImageUrl } from '@/lib/data';
-import { createOrderAndPay } from '@/lib/api';
+import { formatPrice } from '@/lib/data';
+import { createOrderAndPay } from '@/lib/api/checkout';
 import {
   PageShell,
   StickyBar,
@@ -43,7 +43,12 @@ export default function CheckoutPage() {
     setLoading(true);
     setError('');
     const methodLabel = paymentMethods.find((p) => p.id === method)?.label ?? method;
-    const order = await createOrderAndPay({ items: state.cart, total: cartTotal, method, methodLabel });
+    const order = await createOrderAndPay({
+      userId: state.user?.id ?? 'guest',
+      items: state.cart,
+      total: cartTotal,
+      methodLabel,
+    });
     if (order.status === 'PAYMENT_FAILED') {
       setError('Thanh toán không thành công. Giỏ hàng được giữ nguyên, vui lòng thử lại.');
       setLoading(false);
@@ -151,7 +156,7 @@ export default function CheckoutPage() {
               {state.cart.map((item) => (
                 <li key={item.id} className="flex items-center gap-3 py-3">
                   <img
-                    src={getProductImageUrl(item.imageId, 100, 100)}
+                    src={item.imageUrl}
                     alt={item.name}
                     className="h-12 w-12 rounded-lg bg-secondary object-cover"
                   />
@@ -161,7 +166,7 @@ export default function CheckoutPage() {
                       Size {item.size} × {item.qty}
                     </p>
                   </div>
-                  <span className="tabular text-[15px] font-medium">{formatPrice(item.unitPrice * item.qty)}</span>
+                  <span className="tabular text-[15px] font-medium">{formatPrice(item.lineTotal)}</span>
                 </li>
               ))}
             </ul>

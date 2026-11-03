@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useStore, type Order } from '@/lib/store';
-import { formatPrice, getProductImageUrl } from '@/lib/data';
+import { formatPrice } from '@/lib/data';
 import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
 
 const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
@@ -98,7 +98,7 @@ export default function ConfirmationPage() {
             {order.items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 py-3">
                 <img
-                  src={getProductImageUrl(item.imageId, 100, 100)}
+                  src={item.imageUrl}
                   alt={item.name}
                   className="h-12 w-12 rounded-lg bg-secondary object-cover"
                 />
@@ -108,12 +108,12 @@ export default function ConfirmationPage() {
                     Size {item.size} × {item.qty}
                   </p>
                 </div>
-                <span className="tabular text-[15px] font-medium">{formatPrice(item.unitPrice * item.qty)}</span>
+                <span className="tabular text-[15px] font-medium">{formatPrice(item.lineTotal)}</span>
               </li>
             ))}
           </ul>
           <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
-            <span className="text-sm text-muted-foreground">{order.paymentMethod}</span>
+            <span className="text-sm text-muted-foreground">{order.payment?.method}</span>
             <span className="tabular font-display text-2xl font-semibold">{formatPrice(order.total)}</span>
           </div>
         </section>

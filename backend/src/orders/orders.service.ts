@@ -1,14 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '../common/types';
+import { MockOrderItem, MockPayment, OrderStatus } from '../common/types';
 import { CreateOrderDto } from './dto/create-order.dto';
 
 export interface MockOrder {
   id: string;
-  items: Array<Record<string, unknown>>;
+  userId: string;
+  items: MockOrderItem[];
   total: number;
   status: OrderStatus;
-  paymentMethod: string;
   createdAt: string;
+  payment?: MockPayment;
 }
 
 @Injectable()
@@ -16,12 +17,17 @@ export class OrdersService {
   private readonly orders: MockOrder[] = [];
 
   create(dto: CreateOrderDto): MockOrder {
+    const id = `BL-${Date.now().toString().slice(-8)}`;
     const order: MockOrder = {
-      id: `BL-${Date.now().toString().slice(-8)}`,
-      items: dto.items,
+      id,
+      userId: dto.userId,
+      items: dto.items.map(({ unitPrice: _unitPrice, ...item }) => ({
+        ...item,
+        orderId: id,
+        lineTotal: item.lineTotal,
+      })),
       total: dto.total,
       status: 'PENDING',
-      paymentMethod: '',
       createdAt: new Date().toISOString(),
     };
     this.orders.unshift(order);
@@ -33,11 +39,11 @@ export class OrdersService {
   }
 
   // State machine PENDING -> PAID -> PREPARING -> READY -> COMPLETED (TODO: validate transitions)
-  updateStatus(id: string, status: OrderStatus, paymentMethod?: string): MockOrder {
+  updateStatus(id: string, status: OrderStatus, payment?: MockPayment): MockOrder {
     const order = this.orders.find((o) => o.id === id);
     if (!order) throw new NotFoundException('Order not found');
     order.status = status;
-    if (paymentMethod) order.paymentMethod = paymentMethod;
+    if (payment) order.payment = payment;
     return order;
   }
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useStore, type Order } from '@/lib/store';
-import { formatPrice, getProductImageUrl } from '@/lib/data';
+import { formatPrice } from '@/lib/data';
 import { PageShell, ReceiptIcon, btnPrimary, cardCls } from './ui';
 
 const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
@@ -66,7 +66,7 @@ function OrderCard({ order }: { order: Order }) {
           {preview.map((item) => (
             <img
               key={item.id}
-              src={getProductImageUrl(item.imageId, 100, 100)}
+              src={item.imageUrl}
               alt={item.name}
               className="h-11 w-11 rounded-lg border-2 border-card bg-secondary object-cover"
             />
@@ -82,7 +82,7 @@ function OrderCard({ order }: { order: Order }) {
 
       <div className="flex items-center justify-between border-t border-border bg-background/50 px-5 py-4">
         <div>
-          <p className="text-sm text-muted-foreground">{order.paymentMethod}</p>
+          <p className="text-sm text-muted-foreground">{order.payment?.method}</p>
           <p className="tabular font-display text-xl font-semibold">{formatPrice(order.total)}</p>
         </div>
         <Link

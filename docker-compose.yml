@@ -18,22 +18,27 @@ services:
     environment:
       PORT: 4000
       CORS_ORIGIN: http://localhost:3000
-      # DATABASE_URL: postgresql://brewlite:brewlite@db:5432/brewlite
+      DATABASE_URL: postgresql://brewlite:brewlite@db:5432/brewlite?schema=public
       # JWT_SECRET: change-me
-    # depends_on:
-    #   - db
+    depends_on:
+      db:
+        condition: service_healthy
 
-  # Sample database for the Prisma phase (uncomment together with backend env above)
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     POSTGRES_USER: brewlite
-  #     POSTGRES_PASSWORD: brewlite
-  #     POSTGRES_DB: brewlite
-  #   ports:
-  #     - '5432:5432'
-  #   volumes:
-  #     - pgdata:/var/lib/postgresql/data
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: brewlite
+      POSTGRES_PASSWORD: brewlite
+      POSTGRES_DB: brewlite
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U brewlite -d brewlite']
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-# volumes:
-#   pgdata:
+volumes:
+  pgdata:
