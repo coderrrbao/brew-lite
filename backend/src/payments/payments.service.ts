@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { MockPayment } from '../common/types';
+import type { OrderStatus, Payment } from '../generated/prisma/client';
 import { OrdersService } from '../orders/orders.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 
@@ -7,26 +7,12 @@ import { CreatePaymentDto } from './dto/create-payment.dto';
 export class PaymentsService {
   private readonly processed = new Map<
     string,
-    { orderId: string; status: string; payment: MockPayment }
+    { orderId: string; status: OrderStatus; payment: Payment }
   >();
 
-  constructor(private readonly orders: OrdersService) {}
+  constructor(private readonly orderService: OrdersService) {}
 
   // Idempotent by idempotencyKey. TODO: call real payment gateway (MoMo / ZaloPay / card)
-  pay(dto: CreatePaymentDto) {
-    const cached = this.processed.get(dto.idempotencyKey);
-    if (cached) return cached;
-    const order = this.orders.updateStatus(dto.orderId, 'PAID');
-    const payment: MockPayment = {
-      id: `payment-${Date.now()}`,
-      orderId: order.id,
-      idempotencyKey: dto.idempotencyKey,
-      amount: order.total,
-      method: dto.method,
-    };
-    this.orders.updateStatus(order.id, 'PAID', payment);
-    const result = { orderId: order.id, status: order.status, payment };
-    this.processed.set(dto.idempotencyKey, result);
-    return result;
+  async pay(dto: CreatePaymentDto) {
   }
 }

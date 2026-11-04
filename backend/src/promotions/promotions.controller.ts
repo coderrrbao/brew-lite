@@ -13,6 +13,6 @@ export class PromotionsController {
 
   @Post('validate')
   validate(@Body() dto: ValidatePromotionDto) {
-    return this.promotions.validate(dto.code, dto.subtotal);
+    return this.promotions.validate(dto.code, { total: dto.subtotal });
   }
 }

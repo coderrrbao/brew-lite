@@ -1,14 +1,4 @@
-export type PromotionType = 'PERCENTAGE' | 'FIXED_AMOUNT';
-
-export interface Promotion {
-  code: string;
-  description: string;
-  type: PromotionType;
-  value: number;
-  minimumOrderAmount: number;
-  maximumDiscountAmount?: number;
-  active: boolean;
-}
+import type { Promotion } from '../generated/prisma/client';
 
 export const mockPromotions: Promotion[] = [
   {
@@ -19,6 +9,9 @@ export const mockPromotions: Promotion[] = [
     minimumOrderAmount: 50000,
     maximumDiscountAmount: 20000,
     active: true,
+    expiresAt: new Date('2030-12-31T23:59:59.999Z'),
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     code: 'WELCOME15',
@@ -28,6 +21,9 @@ export const mockPromotions: Promotion[] = [
     minimumOrderAmount: 100000,
     maximumDiscountAmount: 30000,
     active: true,
+    expiresAt: new Date('2030-12-31T23:59:59.999Z'),
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     code: 'CAFE5000',
@@ -35,6 +31,22 @@ export const mockPromotions: Promotion[] = [
     type: 'FIXED_AMOUNT',
     value: 5000,
     minimumOrderAmount: 30000,
+    maximumDiscountAmount: null,
     active: true,
+    expiresAt: new Date('2030-12-31T23:59:59.999Z'),
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  },
+  {
+    code: 'HETHAN',
+    description: 'Mã khuyến mãi đã hết hạn',
+    type: 'FIXED_AMOUNT',
+    value: 5000,
+    minimumOrderAmount: 0,
+    maximumDiscountAmount: null,
+    active: true,
+    expiresAt: new Date('2020-01-01T00:00:00.000Z'),
+    createdAt: new Date('2020-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2020-01-01T00:00:00.000Z'),
   },
 ];

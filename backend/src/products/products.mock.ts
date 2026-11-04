@@ -1,15 +1,4 @@
-export type ProductCategory = 'hot' | 'cold' | 'specialty';
-
-export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl: string;
-  stock: number;
-  description: string;
-  category: ProductCategory;
-  popular?: boolean;
-}
+import type { Product } from '../generated/prisma/client';
 
 // Mock data - replace with Prisma queries later
 export const mockProducts: Product[] = [
@@ -22,6 +11,9 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://images.unsplash.com/photo-1509042239860-f550ce710b93?fit=crop&auto=format',
     popular: true,
     stock: 50,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'espresso',
@@ -32,6 +24,9 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?fit=crop&auto=format',
     popular: true,
     stock: 40,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'latte',
@@ -42,6 +37,9 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&auto=format',
     popular: true,
     stock: 35,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'cappuccino',
@@ -50,7 +48,11 @@ export const mockProducts: Product[] = [
     price: 55000,
     category: 'hot',
     imageUrl: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?fit=crop&auto=format',
+    popular: false,
     stock: 30,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'americano',
@@ -59,7 +61,11 @@ export const mockProducts: Product[] = [
     price: 45000,
     category: 'hot',
     imageUrl: 'https://images.unsplash.com/photo-1521302080334-4bedac2763b6?fit=crop&auto=format',
+    popular: false,
     stock: 45,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'cold-brew',
@@ -70,6 +76,9 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?fit=crop&auto=format',
     popular: true,
     stock: 20,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'matcha-latte',
@@ -80,6 +89,9 @@ export const mockProducts: Product[] = [
     imageUrl: 'https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?fit=crop&auto=format',
     popular: true,
     stock: 25,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
   {
     id: 'caramel-macchiato',
@@ -88,6 +100,10 @@ export const mockProducts: Product[] = [
     price: 65000,
     category: 'specialty',
     imageUrl: 'https://images.unsplash.com/photo-1485808191679-5f86510bd9d4?fit=crop&auto=format',
+    popular: false,
     stock: 28,
+    active: true,
+    createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   },
 ];
