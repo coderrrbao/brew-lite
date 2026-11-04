@@ -16,7 +16,7 @@ export type OrderWithRelations = Order & {
 export class OrdersService {
   private readonly orders: OrderWithRelations[] = [];
 
-  create(dto: CreateOrderDto): OrderWithRelations | undefined {
+  create(_dto: CreateOrderDto): OrderWithRelations | undefined {
     return undefined;
   }
 

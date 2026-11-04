@@ -13,6 +13,6 @@ export class PromotionsService {
     );
   }
 
-  validate(code: string, order: Pick<Order, 'total'>) {
+  validate(_code: string, _order: Pick<Order, 'total'>) {
   }
 }

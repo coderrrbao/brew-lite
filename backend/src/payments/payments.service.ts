@@ -13,6 +13,6 @@ export class PaymentsService {
   constructor(private readonly orderService: OrdersService) {}
 
   // Idempotent by idempotencyKey. TODO: call real payment gateway (MoMo / ZaloPay / card)
-  async pay(dto: CreatePaymentDto) {
+  async pay(_dto: CreatePaymentDto) {
   }
 }

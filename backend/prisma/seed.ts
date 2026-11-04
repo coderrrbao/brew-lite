@@ -127,7 +127,7 @@ async function main() {
 
   console.log('🛒 Đang tạo Đơn hàng & Chi tiết...');
   // Đơn 1: Đã hoàn thành
-  const order1 = await prisma.order.create({
+  await prisma.order.create({
     data: {
       userId: user1.id,
       total: 83000,
