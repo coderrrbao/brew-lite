@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type {
   Order,
   OrderItem,
@@ -6,6 +10,7 @@ import type {
   Payment,
 } from '../generated/prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
@@ -14,26 +19,55 @@ export type OrderWithRelations = Order & {
 
 @Injectable()
 export class OrdersService {
-  private readonly orders: OrderWithRelations[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
-  create(dto: CreateOrderDto): OrderWithRelations | undefined {
-    return undefined;
+  async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
+    return this.prisma.order.create({
+      data: {
+        userId: dto.userId,
+        total: dto.total,
+        items: { create: dto.items },
+      },
+      include: { items: true, payments: true },
+    });
   }
 
-  findMine(): OrderWithRelations[] {
-    return this.orders;
+  async findMine(): Promise<OrderWithRelations[]> {
+    return this.prisma.order.findMany({
+      include: { items: true, payments: true },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
-  // State machine PENDING -> PAID -> PREPARING -> READY -> COMPLETED (TODO: validate transitions)
-  updateStatus(
+  async updateStatus(
     id: string,
     status: OrderStatus,
-    payment?: Payment,
-  ): OrderWithRelations {
-    const order = this.orders.find((o) => o.id === id);
+  ): Promise<OrderWithRelations> {
+    const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Order not found');
-    order.status = status;
-    if (payment) order.payments.push(payment);
-    return order;
+
+    const allowedNextStatuses: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      PAID: ['PREPARING'],
+      PREPARING: ['READY'],
+      READY: ['COMPLETED'],
+    };
+    if (!allowedNextStatuses[order.status]?.includes(status)) {
+      throw new ConflictException(
+        `Cannot change order status from ${order.status} to ${status}`,
+      );
+    }
+
+    const updated = await this.prisma.order.updateMany({
+      where: { id, status: order.status },
+      data: { status },
+    });
+    if (updated.count === 0) {
+      throw new ConflictException('Order status changed concurrently');
+    }
+
+    return this.prisma.order.findUniqueOrThrow({
+      where: { id },
+      include: { items: true, payments: true },
+    });
   }
 }

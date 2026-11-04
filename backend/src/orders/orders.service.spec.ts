@@ -1,127 +1,169 @@
-import { NotFoundException } from '@nestjs/common';
-import type { Payment } from '../generated/prisma/client';
+import 'dotenv/config';
+import { randomUUID } from 'node:crypto';
+import { ConflictException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService } from './orders.service';
 
-describe('ordersService', () => {
+describe('OrdersService (PostgreSQL integration)', () => {
+  let prisma: PrismaService;
   let service: OrdersService;
+  let userId: string;
+  let productId: string;
+  let orderIds: string[];
 
-  const taoYeuCauTaoDon = (): CreateOrderDto => ({
-    userId: 'user-1',
-    items: [
-      {
-        id: 'item-1',
-        productId: 'espresso',
-        name: 'Espresso',
-        imageUrl: 'https://example.com/espresso.jpg',
-        size: 'M',
-        toppings: [],
-        qty: 2,
-        unitPrice: 45000,
-        lineTotal: 90000,
+  const createFixture = async () => {
+    const suffix = randomUUID();
+    const user = await prisma.user.create({
+      data: {
+        email: `${suffix}@orders.integration.test`,
+        passwordHash: 'not-used-by-test',
       },
-    ],
-    total: 90000,
+    });
+    userId = user.id;
+
+    const product = await prisma.product.create({
+      data: {
+        id: `test-${suffix}`,
+        name: 'Integration test coffee',
+        description: 'Product fixture',
+        price: 45000,
+        imageUrl: 'https://example.com/coffee.jpg',
+        category: 'hot',
+      },
+    });
+    productId = product.id;
+
+    const dto: CreateOrderDto = {
+      userId,
+      total: 90000,
+      items: [
+        {
+          id: randomUUID(),
+          productId,
+          name: product.name,
+          imageUrl: product.imageUrl,
+          size: 'M',
+          toppings: ['oat milk'],
+          qty: 2,
+          unitPrice: 45000,
+          lineTotal: 90000,
+        },
+      ],
+    };
+    return dto;
+  };
+
+  beforeAll(async () => {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) throw new Error('DATABASE_URL is required for DB tests');
+    const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+    if (!/(^|[_-])test$/i.test(databaseName)) {
+      throw new Error(
+        `Refusing to run DB tests against non-test database "${databaseName}"`,
+      );
+    }
+
+    prisma = new PrismaService();
+    await prisma.$connect();
+    service = new OrdersService(prisma);
   });
 
   beforeEach(() => {
-    service = new OrdersService();
+    userId = '';
+    productId = '';
+    orderIds = [];
   });
 
-  afterEach(() => {
-    jest.restoreAllMocks();
+  afterEach(async () => {
+    if (userId) {
+      for (const orderId of orderIds) {
+        await prisma.payment.deleteMany({ where: { orderId } });
+        await prisma.order.delete({ where: { id: orderId } });
+      }
+      await prisma.user.delete({ where: { id: userId } });
+    }
+    if (productId) {
+      await prisma.product.delete({ where: { id: productId } });
+    }
   });
 
-  describe('create', () => {
-    it('tạo đơn hàng với trạng thái PENDING và dữ liệu đúng định dạng', () => {
-      jest.spyOn(Date, 'now').mockReturnValue(12345678);
-
-      const donHang = service.create(taoYeuCauTaoDon());
-
-      expect(donHang).toEqual({
-        id: 'BL-12345678',
-        userId: 'user-1',
-        items: [
-          {
-            id: 'item-1',
-            orderId: 'BL-12345678',
-            productId: 'espresso',
-            name: 'Espresso',
-            imageUrl: 'https://example.com/espresso.jpg',
-            size: 'M',
-            toppings: [],
-            qty: 2,
-            unitPrice: 45000,
-            lineTotal: 90000,
-          },
-        ],
-        total: 90000,
-        status: 'PENDING',
-        createdAt: expect.any(Date),
-        updatedAt: expect.any(Date),
-        payments: [],
-      });
-      expect(donHang?.items[0].unitPrice).toBe(45000);
-    });
-
-    it('thêm đơn hàng mới vào đầu danh sách', () => {
-      const donHangDau = service.create(taoYeuCauTaoDon());
-      const donHangMoi = service.create({
-        ...taoYeuCauTaoDon(),
-        userId: 'user-2',
-      });
-
-      expect(service.findMine()).toEqual([donHangMoi, donHangDau]);
-    });
+  afterAll(async () => {
+    await prisma?.$disconnect();
   });
 
-  describe('findMine', () => {
-    it('trả về danh sách rỗng khi chưa có đơn hàng', () => {
-      expect(service.findMine()).toEqual([]);
+  it('create() persists a PENDING order and its OrderItems', async () => {
+    const dto = await createFixture();
+
+    const created = await service.create(dto);
+    orderIds.push(created.id);
+    const fromDatabase = await prisma.order.findUnique({
+      where: { id: created.id },
+      include: { items: true, payments: true },
     });
 
-    it('trả về các đơn hàng đã tạo', () => {
-      const donHang = service.create(taoYeuCauTaoDon());
-      expect(donHang).toBeDefined();
-      if (!donHang) return;
-
-      expect(service.findMine()).toContain(donHang);
+    expect(fromDatabase).toMatchObject({
+      userId,
+      total: 90000,
+      status: 'PENDING',
+      items: [
+        {
+          orderId: created.id,
+          productId,
+          qty: 2,
+          unitPrice: 45000,
+          lineTotal: 90000,
+        },
+      ],
+      payments: [],
     });
   });
 
-  describe('updateStatus', () => {
-    it('cập nhật trạng thái đơn hàng và lưu thông tin thanh toán', () => {
-      const donHang = service.create(taoYeuCauTaoDon());
-      expect(donHang).toBeDefined();
-      if (!donHang) return;
-      const thanhToan: Payment = {
-        id: 'payment-1',
-        orderId: donHang.id,
-        idempotencyKey: 'payment-key-1',
-        amount: 90000,
-        method: 'mock',
-        createdAt: new Date('2026-11-04T00:00:00.000Z'),
-      };
+  it('findMine() returns orders read from PostgreSQL', async () => {
+    const dto = await createFixture();
+    const created = await service.create(dto);
+    orderIds.push(created.id);
 
-      const donHangSauCapNhat = service.updateStatus(
-        donHang.id,
-        'PAID',
-        thanhToan,
-      );
-      const donHangTruyVanLai = service
-        .findMine()
-        .find((donHangDuocTim) => donHangDuocTim.id === donHang.id);
+    const results = await service.findMine();
 
-      expect(donHangSauCapNhat.status).toBe('PAID');
-      expect(donHangSauCapNhat.payments).toEqual([thanhToan]);
-      expect(donHangTruyVanLai?.status).toBe('PAID');
-      expect(donHangTruyVanLai?.payments).toEqual([thanhToan]);
+    expect(results.find((order) => order.id === created.id)).toMatchObject({
+      id: created.id,
+      status: 'PENDING',
+      items: [expect.objectContaining({ orderId: created.id })],
+    });
+  });
+
+  it('updateStatus() changes a paid order to the next staff status', async () => {
+    const dto = await createFixture();
+    const created = await service.create(dto);
+    orderIds.push(created.id);
+    await prisma.order.update({
+      where: { id: created.id },
+      data: { status: 'PAID' },
     });
 
-    it('ném NotFoundException khi đơn hàng không tồn tại', () => {
-      expect(() => service.updateStatus('khong-ton-tai', 'PAID')).toThrow(
-        NotFoundException,
-      );
+    await service.updateStatus(created.id, 'PREPARING');
+
+    const fromDatabase = await prisma.order.findUniqueOrThrow({
+      where: { id: created.id },
+      include: { items: true, payments: true },
     });
+    expect(fromDatabase.status).toBe('PREPARING');
+  });
+
+  it('updateStatus() rejects invalid status transitions', async () => {
+    const dto = await createFixture();
+    const created = await service.create(dto);
+    orderIds.push(created.id);
+
+    await expect(
+      service.updateStatus(created.id, 'PREPARING'),
+    ).rejects.toThrow(ConflictException);
+  });
+
+  it('updateStatus() throws when the order does not exist', async () => {
+    await expect(
+      service.updateStatus(`missing-${randomUUID()}`, 'PAID'),
+    ).rejects.toThrow(NotFoundException);
   });
 });

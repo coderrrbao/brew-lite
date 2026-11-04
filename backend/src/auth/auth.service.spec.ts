@@ -17,6 +17,7 @@ describe('authService', () => {
     id: 'user-1',
     name: 'Nguyen',
     email: 'nguyen@example.com',
+    role: 'CUSTOMER' as const,
     loyaltyPoints: 0,
     createdAt: ngayTao,
     updatedAt: ngayTao,
@@ -74,6 +75,7 @@ describe('authService', () => {
       expect.objectContaining({
         sub: 'user-1',
         email: 'nguyen@example.com',
+        role: 'CUSTOMER',
       }),
     );
     expect(ketQua.user).toEqual(nguoiDungCongKhai);
@@ -98,6 +100,7 @@ describe('authService', () => {
       expect.objectContaining({
         sub: 'user-1',
         email: 'nguyen@example.com',
+        role: 'CUSTOMER',
       }),
     );
     expect(ketQua.user).toEqual(nguoiDungCongKhai);
