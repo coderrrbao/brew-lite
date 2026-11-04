@@ -28,6 +28,7 @@ export class AuthService {
         id: true,
         name: true,
         email: true,
+        role: true,
         loyaltyPoints: true,
         createdAt: true,
         updatedAt: true,
@@ -47,6 +48,7 @@ export class AuthService {
         name: true,
         email: true,
         passwordHash: true,
+        role: true,
         loyaltyPoints: true,
         createdAt: true,
         updatedAt: true,
@@ -67,6 +69,7 @@ export class AuthService {
     const accessToken = await this.jwt.signAsync({
       sub: user.id,
       email: user.email,
+      role: user.role,
     });
     return { accessToken, user };
   }

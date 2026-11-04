@@ -8,6 +8,7 @@
     "start:dev": "nest start --watch",
     "lint": "eslint \"src/**/*.ts\" \"prisma/**/*.ts\"",
     "test": "jest",
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "db:generate": "prisma generate",
