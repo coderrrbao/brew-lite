@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import process from 'node:process';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { hash } from 'bcryptjs';
 import { PrismaClient, ProductCategory, OrderStatus, PromotionType } from '../src/generated/prisma/client';
 
 const connectionString = process.env.DATABASE_URL;
@@ -84,11 +85,13 @@ async function main() {
   });
 
   console.log('👤 Đang tạo Nguời dùng...');
+  const passwordHash = await hash('matkhau123', 10);
+
   const user1 = await prisma.user.create({
     data: {
       name: 'Nguyễn Hoài Bảo',
       email: 'bao.nguyen@example.com',
-      passwordHash: '$2b$10$e8p2U4.qS8s0d2E3T4Y5U6u7i8o9p0a1b2c3d4e5f6g7h8i9j0k1l', // Mã hóa giả lập
+      passwordHash,
       loyaltyPoints: 120,
     },
   });
@@ -97,8 +100,17 @@ async function main() {
     data: {
       name: 'Trần Thị Thu',
       email: 'thu.tran@example.com',
-      passwordHash: '$2b$10$e8p2U4.qS8s0d2E3T4Y5U6u7i8o9p0a1b2c3d4e5f6g7h8i9j0k1l',
+      passwordHash,
       loyaltyPoints: 50,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      name: 'Nhân viên Quầy',
+      email: 'staff@example.com',
+      passwordHash,
+      role: 'STAFF',
     },
   });
 
