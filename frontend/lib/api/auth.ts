@@ -1,17 +1,42 @@
 import type { User } from '../store';
-import { request } from './client';
+import { ApiError, request } from './client';
 
 export interface AuthResult {
   accessToken: string;
   user: User;
 }
 
-export function authenticate(
+const ACCESS_TOKEN_KEY = 'brewlite_access_token';
+
+export async function authenticate(
   mode: 'login' | 'register',
   body: { email: string; password: string; name?: string },
 ) {
-  return request<AuthResult>(`/auth/${mode}`, {
+  const result = await request<AuthResult>(`/auth/${mode}`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
+  localStorage.setItem(ACCESS_TOKEN_KEY, result.accessToken);
+  return result;
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  if (!accessToken) return null;
+
+  try {
+    return await request<User>('/auth/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      clearAuthSession();
+      return null;
+    }
+    throw error;
+  }
+}
+
+export function clearAuthSession() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
 }
