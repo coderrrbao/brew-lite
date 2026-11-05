@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { hash } from 'bcryptjs';
@@ -132,5 +132,27 @@ describe('authService', () => {
         password: 'matkhau123',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+  
+  it('đăng ký trùng email trả về ConflictException', async () => {
+    prismaMock.user.create.mockRejectedValue({ code: 'P2002' });
+
+    await expect(
+      authService.register({
+        email: 'nguyen@example.com',
+        password: 'matkhau123',
+        name: 'Nguyen',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('me trả về user công khai', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(nguoiDungCongKhai);
+    await expect(authService.me('user-1')).resolves.toEqual(nguoiDungCongKhai);
+  });
+
+  it('me ném lỗi khi user không còn tồn tại', async () => {
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    await expect(authService.me('x')).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });
