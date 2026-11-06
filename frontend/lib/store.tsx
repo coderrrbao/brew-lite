@@ -1,7 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useState } from 'react';
-import { formatPrice } from './data';
+import React, { createContext, useContext, useReducer } from 'react';
 
 export interface CartItem {
   id: string;
@@ -106,63 +105,6 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-const sampleOrders: Order[] = [
-  {
-    id: 'BL-20260920-001',
-    userId: 'u_1',
-    items: [
-      {
-        id: 'hist-1',
-        orderId: 'BL-20260920-001',
-        productId: 'latte',
-        name: 'Caffe Latte',
-        imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&auto=format',
-        size: 'M',
-        toppings: ['cream-foam'],
-        qty: 2,
-        lineTotal: 122000,
-      },
-    ],
-    total: 122000,
-    status: 'COMPLETED',
-    payment: {
-      id: 'payment-001',
-      orderId: 'BL-20260920-001',
-      idempotencyKey: 'mock-pay-001',
-      amount: 122000,
-      method: 'Ví MoMo',
-    },
-    createdAt: new Date('2026-09-20T10:30:00'),
-  },
-  {
-    id: 'BL-20260922-003',
-    userId: 'u_1',
-    items: [
-      {
-        id: 'hist-2',
-        orderId: 'BL-20260922-003',
-        productId: 'cold-brew',
-        name: 'Cold Brew',
-        imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?fit=crop&auto=format',
-        size: 'L',
-        toppings: [],
-        qty: 1,
-        lineTotal: 70000,
-      },
-    ],
-    total: 70000,
-    status: 'READY',
-    payment: {
-      id: 'payment-002',
-      orderId: 'BL-20260922-003',
-      idempotencyKey: 'mock-pay-002',
-      amount: 70000,
-      method: 'Thẻ nội địa',
-    },
-    createdAt: new Date('2026-09-22T14:15:00'),
-  },
-];
-
 interface StoreCtx {
   state: State;
   dispatch: React.Dispatch<Action>;
@@ -175,7 +117,7 @@ const StoreContext = createContext<StoreCtx | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
     cart: [],
-    orders: sampleOrders,
+    orders: [],
     user: null,
   });
 
