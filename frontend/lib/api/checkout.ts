@@ -1,56 +1,36 @@
-import type { CartItem, Order, OrderItem } from '../store';
-import { createOrder } from './orders';
-import { createPayment } from './payments';
+import type { CartItem } from "../store";
+import { createOrder } from "./orders";
+import { confirmPayment } from "./payments";
+
+export type CheckoutSession = {
+  orderId: string;
+  paymentId: string;
+  amount: number;
+};
 
 export async function createOrderAndPay(input: {
-  userId: string;
+  userId?: string;
   items: CartItem[];
   total: number;
-  methodLabel: string;
-}): Promise<Order> {
-  const idempotencyKey = `pay-${Date.now()}`;
-  try {
-    const created = await createOrder({
-      userId: input.userId,
-      items: input.items,
-      total: input.total,
-    });
-    const paid = await createPayment({
-      orderId: created.id,
-      method: input.methodLabel,
-      idempotencyKey,
-    });
-    return {
-      id: created.id,
-      userId: created.userId,
-      items: created.items,
-      total: input.total,
-      status: paid.status,
-      payment: paid.payment,
-      createdAt: new Date(created.createdAt),
-    };
-  } catch {
-    const id = `BL-${Date.now().toString().slice(-8)}`;
-    const items: OrderItem[] = input.items.map(
-      ({ unitPrice: _unitPrice, ...item }) => ({
-        ...item,
-        orderId: id,
-      }),
-    );
-    return {
-      id,
-      userId: input.userId,
-      items,
-      total: input.total,
-      status: 'PAID',
-      payment: {
-        id: `payment-${Date.now()}`,
-        orderId: id,
-        idempotencyKey,
-        amount: input.total,
-        method: input.methodLabel,
-      },
-      createdAt: new Date(),
-    };
-  }
+  method: string;
+  idempotencyKey: string;
+}): Promise<CheckoutSession> {
+  const order = await createOrder({
+    userId: input.userId,
+    items: input.items,
+    total: input.total,
+    method: input.method,
+    idempotencyKey: input.idempotencyKey,
+  });
+
+  const payment = order.payments[0];
+  if (!payment) throw new Error("Không tạo được thanh toán");
+
+  return {
+    orderId: order.id,
+    paymentId: payment.id,
+    amount: Number(payment.amount),
+  };
 }
+
+export { confirmPayment };

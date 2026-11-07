@@ -1,19 +1,23 @@
-import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
-import { ConflictException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { PaymentsService } from './payments.service';
+import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { PaymentsService } from "./payments.service";
 
-describe('PaymentsService (PostgreSQL integration)', () => {
+describe("PaymentsService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
   let service: PaymentsService;
   let userId: string;
   let orderId: string;
+  let paymentId: string;
+  let idempotencyKey: string;
 
   beforeAll(async () => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) throw new Error('DATABASE_URL is required for DB tests');
-    const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+    if (!databaseUrl) throw new Error("DATABASE_URL is required for DB tests");
+    const databaseName = decodeURIComponent(
+      new URL(databaseUrl).pathname.slice(1),
+    );
     if (!/(^|[_-])test$/i.test(databaseName)) {
       throw new Error(
         `Refusing to run DB tests against non-test database "${databaseName}"`,
@@ -26,20 +30,32 @@ describe('PaymentsService (PostgreSQL integration)', () => {
   });
 
   beforeEach(async () => {
-    userId = '';
-    orderId = '';
+    userId = "";
+    orderId = "";
+    paymentId = "";
+    idempotencyKey = randomUUID();
+
     const user = await prisma.user.create({
       data: {
         email: `${randomUUID()}@payments.integration.test`,
-        passwordHash: 'not-used-by-test',
+        passwordHash: "not-used-by-test",
       },
     });
     userId = user.id;
 
+    // Order + payment PENDING tạo sẵn, giống OrdersService.create
     const order = await prisma.order.create({
-      data: { userId, total: 90000 },
+      data: {
+        userId,
+        total: 90000,
+        payments: {
+          create: { idempotencyKey, amount: 90000, method: "mock" },
+        },
+      },
+      include: { payments: true },
     });
     orderId = order.id;
+    paymentId = order.payments[0].id;
   });
 
   afterEach(async () => {
@@ -54,55 +70,109 @@ describe('PaymentsService (PostgreSQL integration)', () => {
     await prisma?.$disconnect();
   });
 
-  it('pay() saves the payment and changes a PENDING order to PAID', async () => {
-    const idempotencyKey = randomUUID();
+  describe("pay()", () => {
+    it("đổi payment sang PAYMENT_SUCCESS và order PENDING sang PAID", async () => {
+      const result = await service.pay({ paymentId, success: true });
 
-    const result = await service.pay({
-      orderId,
-      idempotencyKey,
-      success: true,
+      const fromDatabase = await prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+        include: { payments: true },
+      });
+      expect(result.order.status).toBe("PAID");
+      expect(result.payment.status).toBe("PAYMENT_SUCCESS");
+      expect(fromDatabase.status).toBe("PAID");
+      expect(fromDatabase.payments).toHaveLength(1);
+      expect(fromDatabase.payments[0]).toMatchObject({
+        orderId,
+        idempotencyKey,
+        status: "PAYMENT_SUCCESS",
+      });
     });
 
-    const fromDatabase = await prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
-      include: { payments: true },
+    it("đổi order sang PAYMENT_FAILED khi thanh toán thất bại", async () => {
+      const result = await service.pay({ paymentId, success: false });
+
+      const fromDatabase = await prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+      });
+      expect(result.order.status).toBe("PAYMENT_FAILED");
+      expect(result.payment.status).toBe("PAYMENT_FAILED");
+      expect(fromDatabase.status).toBe("PAYMENT_FAILED");
     });
-    expect(result.order.status).toBe('PAID');
-    expect(fromDatabase.status).toBe('PAID');
-    expect(fromDatabase.payments).toHaveLength(1);
-    expect(fromDatabase.payments[0]).toMatchObject({
-      orderId,
-      idempotencyKey,
-      amount: 90000,
-      method: 'mock',
+
+    it("gọi lần hai trả kết quả cũ, không ném lỗi và không ghi đè", async () => {
+      await service.pay({ paymentId, success: true });
+      const second = await service.pay({ paymentId, success: false });
+
+      expect(second.message).toBe("Payment already processed");
+      expect(second.order.status).toBe("PAID");
+      expect(await prisma.payment.count({ where: { orderId } })).toBe(1);
+    });
+
+    it("hai request song song chỉ một request xử lý", async () => {
+      const [a, b] = await Promise.all([
+        service.pay({ paymentId, success: true }),
+        service.pay({ paymentId, success: false }),
+      ]);
+
+      const final = await prisma.order.findUniqueOrThrow({
+        where: { id: orderId },
+      });
+      // Kết quả cuối khớp với đúng một request, không bị ghi đè lẫn nhau
+      expect(["PAID", "PAYMENT_FAILED"]).toContain(final.status);
+      expect(a.order.status === b.order.status).toBe(true);
+    });
+
+    it("ném NotFoundException khi paymentId không tồn tại", async () => {
+      await expect(
+        service.pay({ paymentId: randomUUID(), success: true }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it("ném ConflictException khi payment PENDING nhưng order không còn PENDING", async () => {
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: "PAYMENT_FAILED" },
+      });
+
+      await expect(service.pay({ paymentId, success: true })).rejects.toThrow(
+        ConflictException,
+      );
+
+      // rollback: payment vẫn PENDING
+      const payment = await prisma.payment.findUniqueOrThrow({
+        where: { id: paymentId },
+      });
+      expect(payment.status).toBe("PENDING");
     });
   });
 
-  it('pay() changes the order to PAYMENT_FAILED when payment fails', async () => {
-    const result = await service.pay({
-      orderId,
-      idempotencyKey: randomUUID(),
-      success: false,
+  describe("create()", () => {
+    it("trả paymentId và amount khi key hợp lệ", async () => {
+      const result = await service.create({ orderId, idempotencyKey });
+
+      expect(result.paymentId).toBe(paymentId);
+      expect(Number(result.amount)).toBe(90000);
     });
 
-    const fromDatabase = await prisma.order.findUniqueOrThrow({
-      where: { id: orderId },
+    it("ném NotFoundException khi key không tồn tại", async () => {
+      await expect(
+        service.create({ orderId, idempotencyKey: randomUUID() }),
+      ).rejects.toThrow(NotFoundException);
     });
-    expect(result.order.status).toBe('PAYMENT_FAILED');
-    expect(fromDatabase.status).toBe('PAYMENT_FAILED');
-  });
 
-  it('pay() rejects a repeated idempotency key', async () => {
-    const request = {
-      orderId,
-      idempotencyKey: randomUUID(),
-      success: true,
-    };
-    await service.pay(request);
+    it("ném ConflictException khi key thuộc đơn khác", async () => {
+      await expect(
+        service.create({ orderId: randomUUID(), idempotencyKey }),
+      ).rejects.toThrow(ConflictException);
+    });
 
-    await expect(service.pay(request)).rejects.toThrow(ConflictException);
-    expect(
-      await prisma.payment.count({ where: { orderId } }),
-    ).toBe(1);
+    it("ném ConflictException khi đơn đã thanh toán", async () => {
+      await service.pay({ paymentId, success: true });
+
+      await expect(service.create({ orderId, idempotencyKey })).rejects.toThrow(
+        ConflictException,
+      );
+    });
   });
 });

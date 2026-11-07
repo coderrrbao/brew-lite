@@ -1,11 +1,11 @@
-import 'dotenv/config';
-import { randomUUID } from 'node:crypto';
-import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { OrdersService } from './orders.service';
+import "dotenv/config";
+import { randomUUID } from "node:crypto";
+import { ConflictException, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreateOrderDto } from "./dto/create-order.dto";
+import { OrdersService } from "./orders.service";
 
-describe('OrdersService (PostgreSQL integration)', () => {
+describe("OrdersService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
   let service: OrdersService;
   let userId: string;
@@ -17,7 +17,7 @@ describe('OrdersService (PostgreSQL integration)', () => {
     const user = await prisma.user.create({
       data: {
         email: `${suffix}@orders.integration.test`,
-        passwordHash: 'not-used-by-test',
+        passwordHash: "not-used-by-test",
       },
     });
     userId = user.id;
@@ -25,11 +25,11 @@ describe('OrdersService (PostgreSQL integration)', () => {
     const product = await prisma.product.create({
       data: {
         id: `test-${suffix}`,
-        name: 'Integration test coffee',
-        description: 'Product fixture',
+        name: "Integration test coffee",
+        description: "Product fixture",
         price: 45000,
-        imageUrl: 'https://example.com/coffee.jpg',
-        category: 'hot',
+        imageUrl: "https://example.com/coffee.jpg",
+        category: "hot",
       },
     });
     productId = product.id;
@@ -37,14 +37,16 @@ describe('OrdersService (PostgreSQL integration)', () => {
     const dto: CreateOrderDto = {
       userId,
       total: 90000,
+      idempotencyKey: randomUUID(),
+      method: "momo", // đổi cho khớp kiểu/enum trong DTO của bạn
       items: [
         {
           id: randomUUID(),
           productId,
           name: product.name,
           imageUrl: product.imageUrl,
-          size: 'M',
-          toppings: ['oat milk'],
+          size: "M",
+          toppings: ["oat milk"],
           qty: 2,
           unitPrice: 45000,
           lineTotal: 90000,
@@ -56,8 +58,10 @@ describe('OrdersService (PostgreSQL integration)', () => {
 
   beforeAll(async () => {
     const databaseUrl = process.env.DATABASE_URL;
-    if (!databaseUrl) throw new Error('DATABASE_URL is required for DB tests');
-    const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
+    if (!databaseUrl) throw new Error("DATABASE_URL is required for DB tests");
+    const databaseName = decodeURIComponent(
+      new URL(databaseUrl).pathname.slice(1),
+    );
     if (!/(^|[_-])test$/i.test(databaseName)) {
       throw new Error(
         `Refusing to run DB tests against non-test database "${databaseName}"`,
@@ -70,8 +74,8 @@ describe('OrdersService (PostgreSQL integration)', () => {
   });
 
   beforeEach(() => {
-    userId = '';
-    productId = '';
+    userId = "";
+    productId = "";
     orderIds = [];
   });
 
@@ -92,7 +96,7 @@ describe('OrdersService (PostgreSQL integration)', () => {
     await prisma?.$disconnect();
   });
 
-  it('create() persists a PENDING order and its OrderItems', async () => {
+  it("create() persists a PENDING order, its OrderItems and a PENDING payment", async () => {
     const dto = await createFixture();
 
     const created = await service.create(dto);
@@ -105,7 +109,7 @@ describe('OrdersService (PostgreSQL integration)', () => {
     expect(fromDatabase).toMatchObject({
       userId,
       total: 90000,
-      status: 'PENDING',
+      status: "PENDING",
       items: [
         {
           orderId: created.id,
@@ -115,11 +119,31 @@ describe('OrdersService (PostgreSQL integration)', () => {
           lineTotal: 90000,
         },
       ],
-      payments: [],
+      payments: [
+        {
+          orderId: created.id,
+          idempotencyKey: dto.idempotencyKey,
+          method: dto.method,
+          status: "PENDING",
+        },
+      ],
     });
+    expect(fromDatabase?.payments).toHaveLength(1);
   });
 
-  it('findMine() returns orders read from PostgreSQL', async () => {
+  it("create() với cùng idempotencyKey trả lại order cũ, không tạo thêm", async () => {
+    const dto = await createFixture();
+
+    const first = await service.create(dto);
+    orderIds.push(first.id);
+    const second = await service.create(dto);
+
+    expect(second.id).toBe(first.id);
+    expect(second.payments).toHaveLength(1);
+    expect(await prisma.order.count({ where: { userId } })).toBe(1);
+  });
+
+  it("findMine() returns orders read from PostgreSQL", async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
     orderIds.push(created.id);
@@ -128,42 +152,42 @@ describe('OrdersService (PostgreSQL integration)', () => {
 
     expect(results.find((order) => order.id === created.id)).toMatchObject({
       id: created.id,
-      status: 'PENDING',
+      status: "PENDING",
       items: [expect.objectContaining({ orderId: created.id })],
     });
   });
 
-  it('updateStatus() changes a paid order to the next staff status', async () => {
+  it("updateStatus() changes a paid order to the next staff status", async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
     orderIds.push(created.id);
     await prisma.order.update({
       where: { id: created.id },
-      data: { status: 'PAID' },
+      data: { status: "PAID" },
     });
 
-    await service.updateStatus(created.id, 'PREPARING');
+    await service.updateStatus(created.id, "PREPARING");
 
     const fromDatabase = await prisma.order.findUniqueOrThrow({
       where: { id: created.id },
       include: { items: true, payments: true },
     });
-    expect(fromDatabase.status).toBe('PREPARING');
+    expect(fromDatabase.status).toBe("PREPARING");
   });
 
-  it('updateStatus() rejects invalid status transitions', async () => {
+  it("updateStatus() rejects invalid status transitions", async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
     orderIds.push(created.id);
 
-    await expect(
-      service.updateStatus(created.id, 'PREPARING'),
-    ).rejects.toThrow(ConflictException);
+    await expect(service.updateStatus(created.id, "PREPARING")).rejects.toThrow(
+      ConflictException,
+    );
   });
 
-  it('updateStatus() throws when the order does not exist', async () => {
+  it("updateStatus() throws when the order does not exist", async () => {
     await expect(
-      service.updateStatus(`missing-${randomUUID()}`, 'PAID'),
+      service.updateStatus(`missing-${randomUUID()}`, "PAID"),
     ).rejects.toThrow(NotFoundException);
   });
 });

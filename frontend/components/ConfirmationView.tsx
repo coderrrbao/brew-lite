@@ -1,17 +1,53 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { useStore, type Order } from '@/lib/store';
-import { formatPrice } from '@/lib/data';
-import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useStore, type Order } from "@/lib/store";
+import { formatPrice } from "@/lib/data";
+import {
+  PageShell,
+  Eyebrow,
+  CheckIcon,
+  BellIcon,
+  CupIcon,
+  WalletIcon,
+  StarIcon,
+  btnPrimary,
+  btnOutline,
+  cardCls,
+} from "./ui";
 
-const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
-  { key: 'PAID', label: 'Đã thanh toán', hint: 'Quầy đã nhận đơn của bạn', Icon: WalletIcon },
-  { key: 'PREPARING', label: 'Đang pha chế', hint: 'Barista đang chuẩn bị đồ uống', Icon: CupIcon },
-  { key: 'READY', label: 'Sẵn sàng lấy', hint: 'Báo mã đơn tại quầy để nhận ly', Icon: BellIcon },
-  { key: 'COMPLETED', label: 'Hoàn thành', hint: 'Chúc bạn ngon miệng', Icon: StarIcon },
+const steps: Array<{
+  key: Order["status"];
+  label: string;
+  hint: string;
+  Icon: typeof CheckIcon;
+}> = [
+  {
+    key: "PAID",
+    label: "Đã thanh toán",
+    hint: "Quầy đã nhận đơn của bạn",
+    Icon: WalletIcon,
+  },
+  {
+    key: "PREPARING",
+    label: "Đang pha chế",
+    hint: "Barista đang chuẩn bị đồ uống",
+    Icon: CupIcon,
+  },
+  {
+    key: "READY",
+    label: "Sẵn sàng lấy",
+    hint: "Báo mã đơn tại quầy để nhận ly",
+    Icon: BellIcon,
+  },
+  {
+    key: "COMPLETED",
+    label: "Hoàn thành",
+    hint: "Chúc bạn ngon miệng",
+    Icon: StarIcon,
+  },
 ];
 
 export default function ConfirmationPage() {
@@ -20,13 +56,21 @@ export default function ConfirmationPage() {
 
   const order: Order | undefined = state.orders.find((o) => o.id === id);
 
-  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
-  const isLive = order?.status === 'PAID';
+  const finalIndex = order
+    ? Math.max(
+        0,
+        steps.findIndex((s) => s.key === order.status),
+      )
+    : 0;
+  const isLive = order?.status === "PAID";
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!order || !isLive) return;
-    const timer = setInterval(() => setTick((t) => Math.min(t + 1, steps.length - 1)), 2500);
+    const timer = setInterval(
+      () => setTick((t) => Math.min(t + 1, steps.length - 1)),
+      2500,
+    );
     return () => clearInterval(timer);
   }, [order, isLive]);
 
@@ -34,7 +78,9 @@ export default function ConfirmationPage() {
     return (
       <PageShell className="text-center">
         <h1 className="text-3xl font-semibold">Không tìm thấy đơn hàng</h1>
-        <p className="mt-2 text-muted-foreground">Mã đơn có thể đã sai hoặc đã hết hạn.</p>
+        <p className="mt-2 text-muted-foreground">
+          Mã đơn có thể đã sai hoặc đã hết hạn.
+        </p>
         <Link href="/" className={`${btnPrimary} mt-6`}>
           Về trang chủ
         </Link>
@@ -51,14 +97,21 @@ export default function ConfirmationPage() {
           <CheckIcon size={30} />
         </span>
         <h1 className="mt-5 text-4xl font-semibold">Đặt hàng thành công</h1>
-        <p className="mt-2 text-muted-foreground">Cảm ơn bạn đã chọn BrewLite.</p>
+        <p className="mt-2 text-muted-foreground">
+          Cảm ơn bạn đã chọn BrewLite.
+        </p>
       </div>
 
       <div className={`${cardCls} mt-8 p-6 text-center`}>
         <Eyebrow>Mã đơn hàng</Eyebrow>
-        <p className="tabular mt-2 font-display text-3xl font-semibold text-accent">{order.id}</p>
+        <p className="tabular mt-2 font-display text-3xl font-semibold text-accent">
+          {order.id}
+        </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
+          {order.createdAt.toLocaleString("vi-VN", {
+            dateStyle: "full",
+            timeStyle: "short",
+          })}
         </p>
       </div>
 
@@ -68,23 +121,40 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current = i === activeStep && i < steps.length - 1 && isLive;
+              const current =
+                i === activeStep && i < steps.length - 1 && isLive;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <span
                       className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${
-                        done ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'
-                      } ${current ? 'ring-4 ring-accent/20' : ''}`}
+                        done
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-secondary text-muted-foreground"
+                      } ${current ? "ring-4 ring-accent/20" : ""}`}
                     >
-                      {done && i < activeStep ? <CheckIcon size={16} /> : <s.Icon size={16} />}
+                      {done && i < activeStep ? (
+                        <CheckIcon size={16} />
+                      ) : (
+                        <s.Icon size={16} />
+                      )}
                     </span>
-                    {!last && <span className={`my-1 w-0.5 flex-1 min-h-6 ${i < activeStep ? 'bg-accent' : 'bg-border'}`} />}
+                    {!last && (
+                      <span
+                        className={`my-1 w-0.5 flex-1 min-h-6 ${i < activeStep ? "bg-accent" : "bg-border"}`}
+                      />
+                    )}
                   </div>
                   <div className="pb-5">
-                    <p className={`font-semibold ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</p>
-                    {done && <p className="text-sm text-muted-foreground">{s.hint}</p>}
+                    <p
+                      className={`font-semibold ${done ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {s.label}
+                    </p>
+                    {done && (
+                      <p className="text-sm text-muted-foreground">{s.hint}</p>
+                    )}
                   </div>
                 </li>
               );
@@ -103,18 +173,26 @@ export default function ConfirmationPage() {
                   className="h-12 w-12 rounded-lg bg-secondary object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium">{item.name}</p>
+                  <p className="truncate text-[15px] font-medium">
+                    {item.name}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Size {item.size} × {item.qty}
                   </p>
                 </div>
-                <span className="tabular text-[15px] font-medium">{formatPrice(item.lineTotal)}</span>
+                <span className="tabular text-[15px] font-medium">
+                  {formatPrice(item.lineTotal)}
+                </span>
               </li>
             ))}
           </ul>
           <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
-            <span className="text-sm text-muted-foreground">{order.payment?.method}</span>
-            <span className="tabular font-display text-2xl font-semibold">{formatPrice(order.total)}</span>
+            <span className="text-sm text-muted-foreground">
+              {order.payment?.method}
+            </span>
+            <span className="tabular font-display text-2xl font-semibold">
+              {formatPrice(order.total)}
+            </span>
           </div>
         </section>
       </div>

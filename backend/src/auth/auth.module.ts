@@ -1,8 +1,9 @@
-import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
-import { PrismaModule } from '../prisma/prisma.module';
-import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import "dotenv/config";
+import { Module } from "@nestjs/common";
+import { JwtModule } from "@nestjs/jwt";
+import { PrismaModule } from "../prisma/prisma.module";
+import { AuthController } from "./auth.controller";
+import { AuthService } from "./auth.service";
 
 @Module({
   imports: [
@@ -10,11 +11,11 @@ import { AuthService } from './auth.service';
     JwtModule.registerAsync({
       useFactory: () => {
         const secret = process.env.JWT_SECRET;
-        if (!secret) throw new Error('JWT_SECRET chưa được cấu hình');
+        if (!secret) throw new Error("JWT_SECRET chưa được cấu hình");
 
         return {
           secret,
-          signOptions: { expiresIn: '1h' },
+          signOptions: { expiresIn: "1h" },
         };
       },
     }),
