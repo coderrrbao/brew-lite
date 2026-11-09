@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductsService } from './products.service';
 
-describe('productsService - quản lý sản phẩm', () => {
+describe('productsService', () => {
   let service: ProductsService;
 
   const prismaMock = {
@@ -67,7 +67,7 @@ describe('productsService - quản lý sản phẩm', () => {
     expect(Number.isInteger(productValue.stock)).toBe(true);
   }
 
-  describe('findAll - lấy danh sách sản phẩm', () => {
+  describe('findAll', () => {
     it.todo('trả về danh sách sản phẩm đúng theo schema Prisma Product');
     /*
     it('trả về danh sách sản phẩm đúng theo schema Prisma Product', async () => {
@@ -83,7 +83,7 @@ describe('productsService - quản lý sản phẩm', () => {
     */
   });
 
-  describe('findOne - lấy sản phẩm theo mã', () => {
+  describe('findOne', () => {
     it.todo('trả về sản phẩm đúng theo schema Prisma Product');
     /*
     it('trả về sản phẩm đúng theo schema Prisma Product', async () => {

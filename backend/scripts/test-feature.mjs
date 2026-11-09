@@ -1,21 +1,25 @@
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
-const feature = process.argv[2];
-const testFiles = {
-  auth: ['src/auth/auth.service.spec.ts'],
-  orders: ['src/orders/orders.service.spec.ts'],
-  payments: ['src/payments/payments.service.spec.ts'],
-  products: ['src/products/products.service.spec.ts'],
-  promotions: ['src/promotions/promotions.service.spec.ts'],
+const feature = process.env.FEATURE_MODULE ?? process.argv[2] ?? '';
+const suites = {
+  auth: 'src/auth/auth.service.spec.ts',
+  orders: 'src/orders/orders.service.spec.ts',
+  payments: 'src/payments/payments.service.spec.ts',
+  products: 'src/products/products.service.spec.ts',
+  promotions: 'src/promotions/promotions.service.spec.ts',
 };
 
-if (!feature || !testFiles[feature]) {
-  throw new Error(`Unknown feature. Expected one of: ${Object.keys(testFiles).join(', ')}`);
+const suite = suites[feature];
+if (!suite) {
+  console.error(`Unknown feature module "${feature}". Expected: ${Object.keys(suites).join(', ')}`);
+  process.exit(1);
 }
 
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const result = spawnSync(
+  process.execPath,
+  ['node_modules/jest/bin/jest.js', '--runInBand', suite],
+  { stdio: 'inherit' },
+);
 
-execFileSync(pnpm, ['exec', 'jest', '--runInBand', ...testFiles[feature]], {
-  shell: true,
-  stdio: 'inherit',
-});
+if (result.error) throw result.error;
+process.exitCode = result.status === null ? 1 : result.status;

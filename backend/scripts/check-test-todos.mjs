@@ -2,21 +2,22 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const scope = process.argv[2] ?? 'all';
+const strict = process.argv.includes('--strict');
 const roots = scope === 'all' ? ['src', 'test'] : [`src/${scope}`];
-const todoPattern = /\b(?:it|test|describe)\.todo\s*\(/g;
+const pattern = /\b(?:it|test|describe)\.todo\s*\(/g;
 const todos = [];
 
 function scan(directory) {
   for (const entry of readdirSync(directory)) {
-    const path = join(directory, entry);
-    if (statSync(path).isDirectory()) {
-      scan(path);
+    const filePath = join(directory, entry);
+    if (statSync(filePath).isDirectory()) {
+      scan(filePath);
       continue;
     }
 
-    if (!/\.(spec|e2e-spec)\.ts$/.test(path)) continue;
-    const count = (readFileSync(path, 'utf8').match(todoPattern) ?? []).length;
-    if (count > 0) todos.push(`${relative(process.cwd(), path)}: ${count} TODO`);
+    if (!/\.(spec|e2e-spec)\.ts$/.test(filePath)) continue;
+    const count = (readFileSync(filePath, 'utf8').match(pattern) ?? []).length;
+    if (count > 0) todos.push(`${relative(process.cwd(), filePath)}: ${count} TODO`);
   }
 }
 
@@ -33,6 +34,4 @@ if (todos.length > 0) {
   console.warn(todos.join('\n'));
 }
 
-if (process.argv.includes('--strict') && todos.length > 0) {
-  process.exitCode = 1;
-}
+if (strict && todos.length > 0) process.exitCode = 1;

@@ -5,9 +5,7 @@ import { ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 
-describe(
-  'PaymentsService (PostgreSQL integration) - xử lý thanh toán',
-  () => {
+describe('PaymentsService (PostgreSQL integration)', () => {
   let prisma: PrismaService;
   let service: PaymentsService;
   let userId: string;
@@ -57,9 +55,9 @@ describe(
     await prisma?.$disconnect();
   });
 
-  it.todo('pay() lưu thanh toán và chuyển đơn hàng từ PENDING sang PAID');
+  it.todo('pay() saves the payment and changes a PENDING order to PAID');
   /*
-  it('pay() lưu thanh toán và chuyển đơn hàng từ PENDING sang PAID', async () => {
+  it('pay() saves the payment and changes a PENDING order to PAID', async () => {
     const idempotencyKey = randomUUID();
 
     const result = await service.pay({
@@ -84,9 +82,9 @@ describe(
   });
   */
 
-  it.todo('pay() chuyển đơn hàng sang PAYMENT_FAILED khi thanh toán thất bại');
+  it.todo('pay() changes the order to PAYMENT_FAILED when payment fails');
   /*
-  it('pay() chuyển đơn hàng sang PAYMENT_FAILED khi thanh toán thất bại', async () => {
+  it('pay() changes the order to PAYMENT_FAILED when payment fails', async () => {
     const result = await service.pay({
       orderId,
       idempotencyKey: randomUUID(),
@@ -101,9 +99,9 @@ describe(
   });
   */
 
-  it.todo('pay() từ chối idempotency key đã được sử dụng');
+  it.todo('pay() rejects a repeated idempotency key');
   /*
-  it('pay() từ chối idempotency key đã được sử dụng', async () => {
+  it('pay() rejects a repeated idempotency key', async () => {
     const request = {
       orderId,
       idempotencyKey: randomUUID(),
@@ -115,7 +113,6 @@ describe(
     expect(
       await prisma.payment.count({ where: { orderId } }),
     ).toBe(1);
-    },
-  );
+  });
   */
 });
