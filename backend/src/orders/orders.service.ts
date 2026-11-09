@@ -22,13 +22,25 @@ export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
-    return this.prisma.order.create({
-      data: {
-        userId: dto.userId,
-        total: dto.total,
-        items: { create: dto.items },
-      },
-      include: { items: true, payments: true },
+    return this.prisma.$transaction(async (transaction) => {
+      for (const item of dto.items) {
+        const updated = await transaction.product.updateMany({
+          where: { id: item.productId, active: true, stock: { gte: item.qty } },
+          data: { stock: { decrement: item.qty } },
+        });
+        if (updated.count !== 1) {
+          throw new ConflictException(`Insufficient stock for product ${item.productId}`);
+        }
+      }
+
+      return transaction.order.create({
+        data: {
+          userId: dto.userId,
+          total: dto.total,
+          items: { create: dto.items },
+        },
+        include: { items: true, payments: true },
+      });
     });
   }
 
