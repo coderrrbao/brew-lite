@@ -79,7 +79,7 @@ jobs:
             feature/payments*) pnpm test:feature payments ;;
             feature/products*) pnpm test:feature products ;;
             feature/promotions*) pnpm test:feature promotions ;;
-            *) pnpm test -- --runInBand ;;
+            *) pnpm test ;;
           esac
 
       - name: Feature TODO gate
@@ -150,7 +150,7 @@ jobs:
         working-directory: backend
         run: |
           pnpm lint
-          pnpm test -- --runInBand
+          pnpm test
           pnpm test:todos
           pnpm build
 

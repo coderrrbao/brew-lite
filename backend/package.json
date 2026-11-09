@@ -7,7 +7,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "lint": "eslint \"src/**/*.ts\" \"prisma/**/*.ts\"",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "test:feature": "node scripts/test-feature.mjs",
     "test:todos": "node scripts/check-test-todos.mjs",
