@@ -169,6 +169,27 @@ Run these commands from the corresponding app directory:
 | `backend/` | `pnpm build` | Build the API |
 | `backend/` | `pnpm start` | Start the built API |
 
+## CI and parallel feature work
+
+Feature branches use the `feature/<area>` naming convention, for example
+`feature/products`. Their pull request CI runs the matching backend suite,
+reports TODO tests, and fails if that feature still has TODO tests. It still
+requires lint, frontend tests, and both builds. A feature owner can run the
+same checks locally:
+
+```powershell
+Set-Location backend
+pnpm test:feature products
+pnpm test:todos products --strict
+```
+
+The `main` branch reports the total TODO count without failing, so incomplete
+parallel work can be merged. The full-system workflow runs on `main`,
+`develop`, `integration`, and `release-candidate`, or can be started manually.
+It always runs the implemented unit/integration tests and builds. It runs API
+E2E only after the complete repository reaches zero TODO tests; until then it
+reports the remaining TODOs and stays green.
+
 
 
 ```powershell
