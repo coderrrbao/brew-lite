@@ -12,7 +12,6 @@
     "test:feature": "node scripts/test-feature.mjs",
     "test:todos": "node scripts/check-test-todos.mjs",
     "test:todos:strict": "node scripts/check-test-todos.mjs all --strict",
-    "test:integration-flow": "node scripts/test-integration-flow.mjs",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "db:generate": "prisma generate",

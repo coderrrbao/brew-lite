@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import 'dotenv/config';
 import { randomUUID } from 'node:crypto';
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
@@ -6,9 +7,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 
-describe(
-  'Order and payment API E2E (PostgreSQL) - kiểm thử toàn bộ quy trình đơn hàng',
-  () => {
+describe('Order and payment API E2E (PostgreSQL)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let baseUrl: string;
@@ -40,6 +39,7 @@ describe(
       throw new Error('Could not determine E2E server port');
     }
     baseUrl = `http://127.0.0.1:${address.port}`;
+    void baseUrl;
     prisma = app.get(PrismaService);
     staffToken = await app.get(JwtService).signAsync({
       sub: 'integration-staff',
@@ -71,7 +71,6 @@ describe(
         imageUrl: 'https://example.com/e2e-coffee.jpg',
         category: 'hot',
         active: true,
-        stock: 10,
       },
     });
     productId = product.id;
@@ -90,9 +89,9 @@ describe(
     await app?.close();
   });
 
-  it.todo('kiểm tra quy trình xem sản phẩm, tạo đơn, thanh toán và cập nhật trạng thái');
+  it.todo('browses products, orders, pays, and lets staff advance order status');
   /*
-  it('kiểm tra quy trình xem sản phẩm, tạo đơn, thanh toán và cập nhật trạng thái', async () => {
+  it('browses products, orders, pays, and lets staff advance order status', async () => {
     const menuResponse = await fetch(`${baseUrl}/products`);
     expect(menuResponse.status).toBe(200);
     const menu = (await menuResponse.json()) as Array<{ id: string }>;
@@ -104,8 +103,7 @@ describe(
       id: productId,
       name: 'E2E test coffee',
       price: 45000,
-      },
-    );
+      });
 
     const orderResponse = await fetch(`${baseUrl}/orders`, {
       method: 'POST',

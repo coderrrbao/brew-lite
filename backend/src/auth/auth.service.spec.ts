@@ -8,7 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthModule } from './auth.module';
 import { AuthService } from './auth.service';
 
-describe('authService - xác thực người dùng', () => {
+describe('authService', () => {
   let authService: AuthService;
   let jwtService: JwtService;
   let module: TestingModule;

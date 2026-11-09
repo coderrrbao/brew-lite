@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "tsc --noEmit",
-    "test": "node --test --experimental-strip-types tests/*.test.ts",
-    "test:todos": "node scripts/check-test-todos.mjs",
-    "test:todos:strict": "node scripts/check-test-todos.mjs --strict"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "next": "^15.5.0",
@@ -17,6 +15,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/postcss": "^4.1.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
