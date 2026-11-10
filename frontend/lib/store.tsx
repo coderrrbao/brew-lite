@@ -32,6 +32,8 @@ export interface Order {
   userId: string;
   items: OrderItem[];
   total: number;
+  discount?: number;
+  voucherCode?: string;
   status: 'PENDING' | 'PAID' | 'PAYMENT_FAILED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
   createdAt: Date;
   payment?: Payment;

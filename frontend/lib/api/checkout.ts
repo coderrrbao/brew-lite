@@ -5,6 +5,9 @@ import { createPayment } from './payments';
 export async function createOrderAndPay(input: {
   userId: string;
   items: CartItem[];
+  subtotal: number;
+  discount: number;
+  voucherCode?: string;
   total: number;
   methodLabel: string;
 }): Promise<Order> {
@@ -25,6 +28,8 @@ export async function createOrderAndPay(input: {
       userId: created.userId,
       items: created.items,
       total: input.total,
+      discount: input.discount,
+      voucherCode: input.voucherCode,
       status: paid.status,
       payment: paid.payment,
       createdAt: new Date(created.createdAt),
@@ -42,6 +47,8 @@ export async function createOrderAndPay(input: {
       userId: input.userId,
       items,
       total: input.total,
+      discount: input.discount,
+      voucherCode: input.voucherCode,
       status: 'PAID',
       payment: {
         id: `payment-${Date.now()}`,

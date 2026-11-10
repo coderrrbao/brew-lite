@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
 import { createOrderAndPay } from '@/lib/api/checkout';
+import VoucherRow, { useVoucher } from './VoucherRow';
 import {
   PageShell,
   StickyBar,
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const [method, setMethod] = useState('momo');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { voucher, discount, payable, setVoucher } = useVoucher();
 
   useEffect(() => {
     if (state.cart.length === 0 && !loading) router.replace('/');
@@ -46,7 +48,10 @@ export default function CheckoutPage() {
     const order = await createOrderAndPay({
       userId: state.user?.id ?? 'guest',
       items: state.cart,
-      total: cartTotal,
+      subtotal: cartTotal,
+      discount,
+      voucherCode: voucher?.code,
+      total: payable,
       methodLabel,
     });
     if (order.status === 'PAYMENT_FAILED') {
@@ -58,7 +63,7 @@ export default function CheckoutPage() {
     router.replace(`/confirmation/${order.id}`);
   }
 
-  const points = Math.floor(cartTotal / 1000);
+  const points = Math.floor(payable / 1000);
 
   const payButton = (
     <button onClick={placeOrder} disabled={loading} className={`${btnAccent} h-14 w-full text-base`}>
@@ -67,7 +72,7 @@ export default function CheckoutPage() {
           <SpinnerIcon size={18} /> Đang xử lý thanh toán…
         </>
       ) : (
-        <>Xác nhận thanh toán · {formatPrice(cartTotal)}</>
+        <>Xác nhận thanh toán · {formatPrice(payable)}</>
       )}
     </button>
   );
@@ -84,6 +89,19 @@ export default function CheckoutPage() {
 
       <div className="mt-8 grid gap-8 md:grid-cols-[1fr_340px] md:gap-8 lg:grid-cols-[1fr_380px] lg:gap-10">
         <div className="space-y-8">
+          <section>
+            <Eyebrow>Mã giảm giá</Eyebrow>
+            <div className="mt-4">
+              <VoucherRow
+                disabled={loading}
+                voucher={voucher}
+                onApplied={({ code, result }) =>
+                  setVoucher({ code, discountAmount: result.discountAmount })
+                }
+              />
+            </div>
+          </section>
+
           <section>
             <Eyebrow>Phương thức thanh toán</Eyebrow>
             <div role="radiogroup" aria-label="Phương thức thanh toán" className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -170,10 +188,22 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
-              <span className="font-semibold">Tổng cộng</span>
-              <span className="tabular font-display text-2xl font-semibold">{formatPrice(cartTotal)}</span>
-            </div>
+            <dl className="mt-2 space-y-2 border-t border-border pt-4 text-[15px]">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Tạm tính</dt>
+                <dd className="tabular">{formatPrice(cartTotal)}</dd>
+              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-success">
+                  <dt>Mã {voucher?.code}</dt>
+                  <dd className="tabular font-medium">-{formatPrice(discount)}</dd>
+                </div>
+              )}
+              <div className="flex items-baseline justify-between border-t border-border pt-3">
+                <dt className="font-semibold">Tổng cộng</dt>
+                <dd className="tabular font-display text-2xl font-semibold">{formatPrice(payable)}</dd>
+              </div>
+            </dl>
             <div className="mt-6 hidden md:block">{payButton}</div>
           </div>
         </aside>
