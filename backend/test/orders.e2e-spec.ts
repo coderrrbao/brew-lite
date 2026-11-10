@@ -89,8 +89,7 @@ describe('Order and payment API E2E (PostgreSQL)', () => {
     await app?.close();
   });
 
-  it.todo('browses products, orders, pays, and lets staff advance order status');
-  /*
+  
   it('browses products, orders, pays, and lets staff advance order status', async () => {
     const menuResponse = await fetch(`${baseUrl}/products`);
     expect(menuResponse.status).toBe(200);
@@ -195,5 +194,5 @@ describe('Order and payment API E2E (PostgreSQL)', () => {
       expect.objectContaining({ id: orderId, status: 'PREPARING' }),
     );
   });
-  */
+ 
 });

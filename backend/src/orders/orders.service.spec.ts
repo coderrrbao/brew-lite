@@ -93,8 +93,7 @@ describe('OrdersService (PostgreSQL integration)', () => {
     await prisma?.$disconnect();
   });
 
-  it.todo('create() persists a PENDING order and its OrderItems');
-  /*
+  
   it('create() persists a PENDING order and its OrderItems', async () => {
     const dto = await createFixture();
 
@@ -121,10 +120,9 @@ describe('OrdersService (PostgreSQL integration)', () => {
       payments: [],
     });
   });
-  */
+ 
 
-  it.todo('findMine() returns orders read from PostgreSQL');
-  /*
+  
   it('findMine() returns orders read from PostgreSQL', async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
@@ -138,10 +136,9 @@ describe('OrdersService (PostgreSQL integration)', () => {
       items: [expect.objectContaining({ orderId: created.id })],
     });
   });
-  */
+ 
 
-  it.todo('updateStatus() changes a paid order to the next staff status');
-  /*
+  
   it('updateStatus() changes a paid order to the next staff status', async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
@@ -159,10 +156,9 @@ describe('OrdersService (PostgreSQL integration)', () => {
     });
     expect(fromDatabase.status).toBe('PREPARING');
   });
-  */
+ 
 
-  it.todo('updateStatus() rejects invalid status transitions');
-  /*
+  
   it('updateStatus() rejects invalid status transitions', async () => {
     const dto = await createFixture();
     const created = await service.create(dto);
@@ -172,14 +168,13 @@ describe('OrdersService (PostgreSQL integration)', () => {
       service.updateStatus(created.id, 'PREPARING'),
     ).rejects.toThrow(ConflictException);
   });
-  */
+ 
 
-  it.todo('updateStatus() throws when the order does not exist');
-  /*
+  
   it('updateStatus() throws when the order does not exist', async () => {
     await expect(
       service.updateStatus(`missing-${randomUUID()}`, 'PAID'),
     ).rejects.toThrow(NotFoundException);
   });
-  */
+ 
 });
