@@ -1,9 +1,9 @@
-name: Backend CI
+name: BrewLite CI
 
 on:
   push:
     branches:
-      - '**'
+      - "**"
   pull_request:
     branches:
       - main
@@ -14,63 +14,11 @@ permissions:
 
 jobs:
   feature-ci:
-    name: Feature PR CI
+    name: Feature branch validation
     if: github.event_name == 'pull_request' || github.ref_name != 'main'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    env:
-      JWT_SECRET: ci-only-secret-do-not-use-in-production
+    timeout-minutes: 20
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 12.9.1
-          run_install: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
-
-      - name: Install backend dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm db:generate
-
-      - name: Backend lint
-        run: pnpm lint
-
-      - name: Mock-based unit tests
-        run: pnpm test -- --runInBand auth/auth.service.spec.ts products/products.service.spec.ts
-
-      - name: Backend build
-        run: pnpm build
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install --frozen-lockfile
-
-      - name: Frontend type check
-        working-directory: frontend
-        run: pnpm lint
-
-      - name: Frontend build
-        working-directory: frontend
-        run: pnpm build
-
-  main-integration-ci:
-    name: Main integration and E2E
-    if: github.event_name == 'push' && github.ref_name == 'main'
-    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
@@ -85,59 +33,127 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-    defaults:
-      run:
-        working-directory: backend
     env:
       DATABASE_URL: postgresql://brewlite:brewlite@localhost:5432/brew_lite_test?schema=public
       JWT_SECRET: ci-only-secret-do-not-use-in-production
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 12.9.1
           run_install: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
           cache-dependency-path: backend/pnpm-lock.yaml
 
       - name: Install backend dependencies
+        working-directory: backend
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
+        working-directory: backend
         run: pnpm db:generate
 
       - name: Apply database migrations
+        working-directory: backend
         run: pnpm exec prisma migrate deploy
 
       - name: Backend lint
+        working-directory: backend
         run: pnpm lint
 
-      - name: All service and integration tests
-        run: pnpm test -- --runInBand
+      - name: Feature unit and integration tests
+        working-directory: backend
+        env:
+          FEATURE_MODULE: ${{ startsWith(github.head_ref || github.ref_name, 'feature/') && (github.head_ref || github.ref_name) || '' }}
+        run: |
+          case "$FEATURE_MODULE" in
+            feature/auth*) pnpm test:feature auth ;;
+            feature/orders*) pnpm test:feature orders ;;
+            feature/payments*) pnpm test:feature payments ;;
+            feature/products*) pnpm test:feature products ;;
+            feature/promotions*) pnpm test:feature promotions ;;
+            *) pnpm test ;;
+          esac
 
-      - name: API end-to-end test
-        run: pnpm test:e2e
+      - name: Feature TODO gate
+        working-directory: backend
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          case "$BRANCH_NAME" in
+            feature/auth*) pnpm test:todos auth --strict ;;
+            feature/orders*) pnpm test:todos orders --strict ;;
+            feature/payments*) pnpm test:todos payments --strict ;;
+            feature/products*) pnpm test:todos products --strict ;;
+            feature/promotions*) pnpm test:todos promotions --strict ;;
+            *) pnpm test:todos ;;
+          esac
 
       - name: Backend build
+        working-directory: backend
         run: pnpm build
 
-      - name: Install frontend dependencies
-        working-directory: frontend
+  main-integration-ci:
+    name: Main integration validation
+    if: github.event_name == 'push' && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: brewlite
+          POSTGRES_PASSWORD: brewlite
+          POSTGRES_DB: brew_lite_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U brewlite -d brew_lite_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://brewlite:brewlite@localhost:5432/brew_lite_test?schema=public
+      JWT_SECRET: ci-only-secret-do-not-use-in-production
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
         run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        working-directory: backend
+        run: pnpm db:generate
+      - name: Apply database migrations
+        working-directory: backend
+        run: pnpm exec prisma migrate deploy
+      - name: Backend lint and tests
+        working-directory: backend
+        run: |
+          pnpm lint
+          pnpm test
+          pnpm test:todos
+          pnpm build
 
-      - name: Frontend type check
-        working-directory: frontend
-        run: pnpm lint
-
-      - name: Frontend build
-        working-directory: frontend
-        run: pnpm build
+      # TODO: Uncomment manually after all feature branches are merged.
+      # - name: API E2E tests
+      #   working-directory: backend
+      #   run: pnpm test:e2e

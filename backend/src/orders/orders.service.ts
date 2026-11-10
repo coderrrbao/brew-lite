@@ -1,18 +1,16 @@
 import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
-} from "@nestjs/common";
-import {
-  Prisma,
-  type Order,
-  type OrderItem,
-  type OrderStatus,
-  type Payment,
-} from "../generated/prisma/client";
-import { CreateOrderDto } from "./dto/create-order.dto";
-import { PrismaService } from "../prisma/prisma.service";
+} from '@nestjs/common';
+import type {
+  Order,
+  OrderItem,
+  OrderStatus,
+  Payment,
+} from '../generated/prisma/client';
+import { CreateOrderDto } from './dto/create-order.dto';
+import { PrismaService } from '../prisma/prisma.service';
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
@@ -22,45 +20,22 @@ export type OrderWithRelations = Order & {
 @Injectable()
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
+
   async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
-    try {
-      if (!dto.idempotencyKey) {
-        throw new BadRequestException("idempotencyKey is required");
-      }
-      return await this.prisma.order.create({
-        data: {
-          userId: dto.userId,
-          total: dto.total,
-          items: { create: dto.items },
-          payments: {
-            create: {
-              idempotencyKey: dto.idempotencyKey,
-              amount: dto.total,
-              method: dto.method,
-            },
-          },
-        },
-        include: { items: true, payments: true },
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        const payment = await this.prisma.payment.findUnique({
-          where: { idempotencyKey: dto.idempotencyKey },
-          include: { order: { include: { items: true, payments: true } } },
-        });
-        if (payment) return payment.order;
-      }
-      throw error;
-    }
+    return this.prisma.order.create({
+      data: {
+        userId: dto.userId,
+        total: dto.total,
+        items: { create: dto.items },
+      },
+      include: { items: true, payments: true },
+    });
   }
 
   async findMine(): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
       include: { items: true, payments: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
@@ -69,12 +44,12 @@ export class OrdersService {
     status: OrderStatus,
   ): Promise<OrderWithRelations> {
     const order = await this.prisma.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException("Order not found");
+    if (!order) throw new NotFoundException('Order not found');
 
     const allowedNextStatuses: Partial<Record<OrderStatus, OrderStatus[]>> = {
-      PAID: ["PREPARING"],
-      PREPARING: ["READY"],
-      READY: ["COMPLETED"],
+      PAID: ['PREPARING'],
+      PREPARING: ['READY'],
+      READY: ['COMPLETED'],
     };
     if (!allowedNextStatuses[order.status]?.includes(status)) {
       throw new ConflictException(
@@ -87,7 +62,7 @@ export class OrdersService {
       data: { status },
     });
     if (updated.count === 0) {
-      throw new ConflictException("Order status changed concurrently");
+      throw new ConflictException('Order status changed concurrently');
     }
 
     return this.prisma.order.findUniqueOrThrow({

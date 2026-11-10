@@ -1,4 +1,4 @@
-import { IsBoolean, IsNotEmpty, IsString } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsString, IsUUID } from "class-validator";
 
 export class CreatePaymentDto {
   @IsString()
@@ -12,8 +12,13 @@ export class CreatePaymentDto {
 
 export class PayOrderDto {
   @IsString()
-  @IsNotEmpty()
-  paymentId: string;
+  method: string;
+
+  @IsString()
+  orderId: string;
+
+  @IsUUID()
+  idempotencyKey: string;
 
   @IsBoolean()
   success: boolean;

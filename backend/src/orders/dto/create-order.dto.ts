@@ -63,10 +63,6 @@ export class CreateOrderDto {
   @Min(0)
   total: number;
 
-  @IsString()
-  @IsNotEmpty()
-  method: string;
-
   @IsOptional()
   @IsString()
   @IsNotEmpty()
