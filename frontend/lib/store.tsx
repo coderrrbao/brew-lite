@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useState } from 'react';
-import { formatPrice } from './data';
+import React, { createContext, useContext, useEffect, useReducer } from 'react';
+import { getCurrentUser } from './api/auth';
 
 export interface CartItem {
   id: string;
@@ -180,6 +180,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     orders: sampleOrders,
     user: null,
   });
+
+  useEffect(() => {
+    let active = true;
+    getCurrentUser()
+      .then((user) => {
+        if (active && user) dispatch({ type: 'SET_USER', user });
+      })
+      .catch((error: unknown) => {
+        console.error('Không thể khôi phục phiên đăng nhập:', error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const cartTotal = state.cart.reduce((sum, i) => sum + i.lineTotal, 0);
   const cartCount = state.cart.reduce((sum, i) => sum + i.qty, 0);

@@ -4,6 +4,16 @@ const BASE =
     ? (process.env.INTERNAL_API_URL ?? PUBLIC_URL)
     : PUBLIC_URL;
 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -11,6 +21,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     cache: 'no-store',
     signal: AbortSignal.timeout(4000),
   });
-  if (!res.ok) throw new Error(`API ${res.status}: ${path}`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { message?: unknown } | null;
+    const message = body?.message;
+    const detail = typeof message === 'string'
+      ? message
+      : Array.isArray(message)
+        ? message.filter((item): item is string => typeof item === 'string').join(' ')
+        : '';
+    throw new ApiError(res.status, detail || `API ${res.status}: ${path}`);
+  }
   return res.json() as Promise<T>;
 }

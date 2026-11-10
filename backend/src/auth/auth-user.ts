@@ -5,3 +5,8 @@ export interface AuthUser {
   email: string;
   role: UserRole;
 }
+
+export type AuthenticatedRequest = {
+  headers: { authorization?: string };
+  user?: AuthUser;
+};
