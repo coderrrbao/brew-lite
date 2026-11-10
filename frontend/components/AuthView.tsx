@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { getProductImageUrl } from '@/lib/data';
-import { authenticate } from '@/lib/api/auth';
+import { authenticate, clearAuthSession } from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
 
 export default function AuthPage() {
@@ -34,7 +34,13 @@ export default function AuthPage() {
           <Link href="/orders" className={`${btnPrimary} flex-1`}>
             Đơn hàng của tôi
           </Link>
-          <button onClick={() => dispatch({ type: 'SET_USER', user: null })} className={`${btnOutline} flex-1`}>
+          <button
+            onClick={() => {
+              clearAuthSession();
+              dispatch({ type: 'SET_USER', user: null });
+            }}
+            className={`${btnOutline} flex-1`}
+          >
             Đăng xuất
           </button>
         </div>
@@ -42,32 +48,31 @@ export default function AuthPage() {
     );
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
     if (!email || !password || (mode === 'register' && !name)) {
       setError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
-    if (password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự.');
+    if (mode === 'register' && password.length < 8) {
+      setError('Mật khẩu phải có ít nhất 8 ký tự.');
       return;
     }
     setLoading(true);
-    const fallback = {
-      id: 'user-' + Date.now(),
-      email,
-      name: mode === 'register' ? name : email.split('@')[0],
-      loyaltyPoints: 120,
-    };
-    authenticate(mode, { email, password, name })
-      .then((r) => r.user)
-      .catch(() => fallback)
-      .then((user) => {
-        dispatch({ type: 'SET_USER', user });
-        router.push('/');
-      })
-      .finally(() => setLoading(false));
+    try {
+      const { user } = await authenticate(mode, { email, password, name });
+      dispatch({ type: 'SET_USER', user });
+      router.push('/');
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'TypeError' || error.name === 'TimeoutError')) {
+        setError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra API và thử lại.');
+      } else {
+        setError(error instanceof Error ? error.message : 'Không thể đăng nhập. Vui lòng thử lại.');
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   const isLogin = mode === 'login';
@@ -116,7 +121,7 @@ export default function AuthPage() {
             type="password"
             value={password}
             onChange={setPassword}
-            placeholder="Ít nhất 6 ký tự"
+            placeholder={isLogin ? 'Nhập mật khẩu' : 'Ít nhất 8 ký tự'}
             autoComplete={isLogin ? 'current-password' : 'new-password'}
           />
 
