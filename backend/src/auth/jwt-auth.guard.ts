@@ -1,16 +1,8 @@
 import {
-  CanActivate,
-  ExecutionContext,
-  Injectable,
-  UnauthorizedException,
+  CanActivate, ExecutionContext, Injectable, UnauthorizedException,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import type { AuthUser } from './auth-user';
-
-type AuthenticatedRequest = {
-  headers: { authorization?: string };
-  user?: AuthUser;
-};
+import { JwtService, TokenExpiredError } from '@nestjs/jwt';
+import type { AuthenticatedRequest, AuthUser } from './auth-user';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -20,18 +12,23 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const [scheme, token] = request.headers.authorization?.split(' ') ?? [];
     if (scheme !== 'Bearer' || !token) {
-      throw new UnauthorizedException('Bearer token is required');
+      throw new UnauthorizedException('Thiếu Bearer token');
     }
 
+    let payload: AuthUser;
     try {
-      const payload = await this.jwt.verifyAsync<AuthUser>(token);
-      if (!payload.sub || !payload.email || !payload.role) {
-        throw new UnauthorizedException('Invalid access token');
+      payload = await this.jwt.verifyAsync<AuthUser>(token);
+    } catch (error) {
+      if (error instanceof TokenExpiredError) {
+        throw new UnauthorizedException('Token đã hết hạn');
       }
-      request.user = payload;
-      return true;
-    } catch {
-      throw new UnauthorizedException('Invalid access token');
+      throw new UnauthorizedException('Token không hợp lệ');
     }
+
+    if (!payload.sub || !payload.email || !payload.role) {
+      throw new UnauthorizedException('Token không hợp lệ');
+    }
+    request.user = payload;
+    return true;
   }
 }
