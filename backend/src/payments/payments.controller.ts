@@ -4,15 +4,12 @@ import {
   Controller,
   Headers,
   Post,
-  Req,
-  UseGuards,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 // import { JwtAuthGuard } from "../auth/jwt-auth.guard"; // đúng đường dẫn guard của bạn
 
 @Controller("payments")
-// @UseGuards(JwtAuthGuard)
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
