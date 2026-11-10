@@ -52,7 +52,8 @@ model Product {
   price       Int
   imageUrl    String
   stock       Int             @default(0)
-  category    ProductCategory
+  version    Int             @default(0)
+  category   ProductCategory
   popular     Boolean         @default(false)
   active      Boolean         @default(true)
   createdAt   DateTime        @default(now())

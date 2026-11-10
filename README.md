@@ -169,6 +169,12 @@ Run these commands from the corresponding app directory:
 | `backend/` | `pnpm build` | Build the API |
 | `backend/` | `pnpm start` | Start the built API |
 
+Repo 1 keeps the required Task 10 business checks beside their owning modules:
+order state transitions are tested in the orders suite, stock protection is
+implemented and tested in the products suite, while payment idempotency is
+tested in the payments suite. Promotion and loyalty integration remains a
+TODO until it is wired into the payment transaction.
+
 
 
 ```powershell

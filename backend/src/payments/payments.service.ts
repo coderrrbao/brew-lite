@@ -53,6 +53,8 @@ export class PaymentsService {
           include: { items: true, payments: true },
         });
 
+        // TODO(repo1): apply the order promotion and award loyalty points
+        // in this transaction after a successful PAID transition.
         return { order: updatedOrder, payment };
       });
     } catch (error) {
