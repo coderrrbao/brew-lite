@@ -1,4 +1,4 @@
-import { IsBoolean, IsNotEmpty, IsString, IsUUID } from "class-validator";
+import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
 
 export class CreatePaymentDto {
   @IsString()
@@ -8,11 +8,15 @@ export class CreatePaymentDto {
   @IsString()
   @IsNotEmpty()
   idempotencyKey: string;
+
+  @IsOptional()
+  @IsIn(["wallet", "card", "momo", "mock"])
+  method?: string;
 }
 
 export class PayOrderDto {
   @IsString()
-  method: string;
+  method?: string;
 
   @IsString()
   orderId: string;
