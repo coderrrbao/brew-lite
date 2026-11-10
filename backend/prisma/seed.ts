@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import process from 'node:process';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { hash } from 'bcryptjs';
 import { PrismaClient, ProductCategory, OrderStatus, PromotionType } from '../src/generated/prisma/client';
 
 const connectionString = process.env.DATABASE_URL;
@@ -30,7 +31,7 @@ async function main() {
         name: 'Cà Phê Đen Đá',
         description: 'Cà phê đậm vị truyền thống pha phin',
         price: 25000,
-        imageUrl: '/images/products/black-coffee.jpg',
+        imageUrl: 'https://plus.unsplash.com/premium_photo-1733317435318-531c85f0f00a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
         stock: 100,
         category: ProductCategory.hot,
         popular: true,
@@ -41,7 +42,7 @@ async function main() {
         name: 'Cà Phê Sữa Đá',
         description: 'Cà phê phin kết hợp sữa đặc ngọt béo',
         price: 29000,
-        imageUrl: '/images/products/milk-coffee.jpg',
+        imageUrl: 'https://images.unsplash.com/photo-1652284916898-b46f3d32e76b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
         stock: 150,
         category: ProductCategory.cold,
         popular: true,
@@ -52,7 +53,7 @@ async function main() {
         name: 'Matcha Latte Thượng Hạng',
         description: 'Matcha trà xanh Nhật Bản pha sữa tươi thơm ngon',
         price: 45000,
-        imageUrl: '/images/products/matcha-latte.jpg',
+        imageUrl: 'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
         stock: 80,
         category: ProductCategory.specialty,
         popular: true,
@@ -63,7 +64,7 @@ async function main() {
         name: 'Trà Đào Cam Sả',
         description: 'Trà đào thanh mát kết hợp vị cam sả giải nhiệt',
         price: 39000,
-        imageUrl: '/images/products/peach-tea.jpg',
+        imageUrl: 'https://images.unsplash.com/photo-1731047005879-f0a56f73fd8d?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
         stock: 120,
         category: ProductCategory.cold,
         popular: false,
@@ -74,7 +75,7 @@ async function main() {
         name: 'Espresso Single Shot',
         description: 'Đậm đà chiết xuất từ hạt Arabica nguyên chất',
         price: 32000,
-        imageUrl: '/images/products/espresso.jpg',
+        imageUrl: 'https://images.unsplash.com/photo-1705952285570-113e76f63fb0?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
         stock: 50,
         category: ProductCategory.hot,
         popular: false,
@@ -84,11 +85,13 @@ async function main() {
   });
 
   console.log('👤 Đang tạo Nguời dùng...');
+  const passwordHash = await hash('matkhau123', 10);
+
   const user1 = await prisma.user.create({
     data: {
       name: 'Nguyễn Hoài Bảo',
       email: 'bao.nguyen@example.com',
-      passwordHash: '$2b$10$e8p2U4.qS8s0d2E3T4Y5U6u7i8o9p0a1b2c3d4e5f6g7h8i9j0k1l', // Mã hóa giả lập
+      passwordHash,
       loyaltyPoints: 120,
     },
   });
@@ -97,8 +100,17 @@ async function main() {
     data: {
       name: 'Trần Thị Thu',
       email: 'thu.tran@example.com',
-      passwordHash: '$2b$10$e8p2U4.qS8s0d2E3T4Y5U6u7i8o9p0a1b2c3d4e5f6g7h8i9j0k1l',
+      passwordHash,
       loyaltyPoints: 50,
+    },
+  });
+
+  await prisma.user.create({
+    data: {
+      name: 'Nhân viên Quầy',
+      email: 'staff@example.com',
+      passwordHash,
+      role: 'STAFF',
     },
   });
 
