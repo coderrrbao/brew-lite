@@ -23,7 +23,6 @@ export function createOrder(input: {
   });
 }
 
-<<<<<<< HEAD
 export async function getMyOrders(token?: string): Promise<Order[] | null> {
   try {
     const rows = await request<
@@ -39,19 +38,6 @@ export async function getMyOrders(token?: string): Promise<Order[] | null> {
   } catch {
     return null;
   }
-=======
-export async function getMyOrders(): Promise<Order[]> {
-  const token = getAccessToken();
-  const rows = await request<
-    Array<Omit<Order, 'createdAt'> & { createdAt: string }>
-  >('/orders/me', {
-    headers: token ? { Authorization: ['Bearer', token].join(' ') } : undefined,
-  });
-  return rows.map((order) => ({
-    ...order,
-    createdAt: new Date(order.createdAt),
-  }));
->>>>>>> 9226601 (feat: product view dùng api thật, thêm các loading, error view)
 }
 export async function getOrderById(
   id: string,
