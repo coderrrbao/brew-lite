@@ -19,7 +19,7 @@ const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
 
 export default function OrdersPage() {
   const { state, dispatch } = useStore();
-  const [orders, setOrders] = useState<Order[]>(state.orders);
+  const [orders, setOrders] = useState<Order[]>(state.orders || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -28,10 +28,12 @@ export default function OrdersPage() {
     setError('');
     try {
       const result = await getMyOrders();
-      setOrders(result);
-      dispatch({ type: 'SET_ORDERS', orders: result });
+      const safeOrders = result ?? [];
+      setOrders(safeOrders);
+      dispatch({ type: 'SET_ORDERS', orders: safeOrders });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Không tải được lịch sử đơn hàng.');
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ function OrderCard({ order }: { order: Order }) {
         <div>
           <p className="tabular font-semibold">{order.id}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
+            {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${status.cls}`}>{status.label}</span>
