@@ -7,11 +7,17 @@ export function createPayment(input: {
   idempotencyKey: string;
 }) {
   return request<{
-    orderId: string;
-    status: Order['status'];
-    payment: Payment;
+    order: {
+      id: string;
+      status: Order['status'];
+    };
+    payment: Payment | null;
   }>('/payments', {
     method: 'POST',
-    body: JSON.stringify(input),
+    body: JSON.stringify({
+      orderId: input.orderId,
+      success: true,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
 }

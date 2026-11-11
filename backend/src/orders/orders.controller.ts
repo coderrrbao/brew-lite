@@ -12,6 +12,9 @@ import { StaffGuard } from '../auth/staff.guard';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthUser } from '../auth/auth-user';
+
 
 @Controller('orders')
 export class OrdersController {
@@ -24,8 +27,9 @@ export class OrdersController {
   }
 
   @Get('me')
-  findMine() {
-    return this.orders.findMine();
+  @UseGuards(JwtAuthGuard)
+  findMine(@CurrentUser() user: AuthUser) {
+    return this.orders.findMine(user.sub);
   }
 
   @Patch(':id/status')

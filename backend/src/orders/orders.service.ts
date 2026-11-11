@@ -57,8 +57,9 @@ export class OrdersService {
     });
   }
 
-  async findMine(): Promise<OrderWithRelations[]> {
+  async findMine(userId: string): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
+      where: { userId },
       include: { items: true, payments: true },
       orderBy: { createdAt: 'desc' },
     });

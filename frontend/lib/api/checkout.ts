@@ -13,16 +13,21 @@ export async function createOrderAndPay(input: {
 }): Promise<Order> {
   const idempotencyKey = `pay-${Date.now()}`;
   try {
+
     const created = await createOrder({
       userId: input.userId,
       items: input.items,
       total: input.total,
     });
+
+
     const paid = await createPayment({
       orderId: created.id,
       method: input.methodLabel,
       idempotencyKey,
     });
+
+
     return {
       id: created.id,
       userId: created.userId,
@@ -30,8 +35,8 @@ export async function createOrderAndPay(input: {
       total: input.total,
       discount: input.discount,
       voucherCode: input.voucherCode,
-      status: paid.status,
-      payment: paid.payment,
+      status: paid.order.status,
+      payment: paid.payment ?? undefined,
       createdAt: new Date(created.createdAt),
     };
   } catch {
