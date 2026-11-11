@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { getMyOrders } from '@/lib/api/orders';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
-import { PageShell, ReceiptIcon, btnPrimary, cardCls } from './ui';
+import { PageShell, ReceiptIcon, SpinnerIcon, btnPrimary, btnOutline, cardCls } from './ui';
 
 const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
   PENDING: { label: 'Chờ xử lý', cls: 'bg-[#f6e7c1] text-[#6b4a05]' },
@@ -16,14 +18,44 @@ const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
 };
 
 export default function OrdersPage() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
+  const [orders, setOrders] = useState<Order[]>(state.orders);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function loadOrders() {
+    setLoading(true);
+    setError('');
+    try {
+      const result = await getMyOrders();
+      setOrders(result);
+      dispatch({ type: 'SET_ORDERS', orders: result });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không tải được lịch sử đơn hàng.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadOrders();
+  }, []);
 
   return (
     <PageShell>
       <h1 className="text-4xl font-semibold">Lịch sử đơn hàng</h1>
       <p className="mt-2 text-muted-foreground">Theo dõi trạng thái và xem lại các đơn đã đặt.</p>
 
-      {state.orders.length === 0 ? (
+      {loading ? (
+        <div className="mt-14 flex justify-center text-muted-foreground" role="status">
+          <SpinnerIcon size={24} />
+        </div>
+      ) : error ? (
+        <div className="mt-14 flex flex-col items-center text-center">
+          <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+          <button onClick={() => void loadOrders()} className={`${btnOutline} mt-6`}>Thử lại</button>
+        </div>
+      ) : orders.length === 0 ? (
         <div className="mt-14 flex flex-col items-center text-center">
           <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-muted-foreground">
             <ReceiptIcon size={32} />
@@ -35,7 +67,7 @@ export default function OrdersPage() {
         </div>
       ) : (
         <ul className="mt-8 space-y-4">
-          {state.orders.map((o) => (
+          {orders.map((o) => (
             <OrderCard key={o.id} order={o} />
           ))}
         </ul>

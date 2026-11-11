@@ -104,10 +104,14 @@ function reducer(state: State, action: Action): State {
     case 'PLACE_ORDER':
       return { ...state, orders: [action.order, ...state.orders], cart: [] };
     case 'SET_ORDERS':
+<<<<<<< HEAD
       return {
         ...state,
         orders: action.orders,
       };
+=======
+      return { ...state, orders: action.orders };
+>>>>>>> 9226601 (feat: product view dùng api thật, thêm các loading, error view)
     case 'SET_USER':
       return { ...state, user: action.user };
     default:
@@ -115,7 +119,10 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9226601 (feat: product view dùng api thật, thêm các loading, error view)
 interface StoreCtx {
   state: State;
   dispatch: React.Dispatch<Action>;

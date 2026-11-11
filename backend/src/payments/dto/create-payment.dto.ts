@@ -5,6 +5,10 @@ export class CreatePaymentDto {
   @IsNotEmpty()
   orderId: string;
 
+  @IsString()
+  @IsNotEmpty()
+  method: string;
+
   @IsBoolean()
   success: boolean;
 

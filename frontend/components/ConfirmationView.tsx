@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { getMyOrders } from '@/lib/api/orders';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
 import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
@@ -49,6 +50,19 @@ export default function ConfirmationPage() {
     return (
       <PageShell className="text-center">
         <h1>Đang tải đơn hàng...</h1>
+      </PageShell>
+    );
+  }
+
+  if (loading) {
+    return <PageShell className="flex justify-center text-muted-foreground"><span role="status"><SpinnerIcon size={24} /></span></PageShell>;
+  }
+
+  if (error) {
+    return (
+      <PageShell className="text-center">
+        <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>Thử lại</button>
       </PageShell>
     );
   }

@@ -65,6 +65,8 @@ export default function AuthPage() {
       dispatch({ type: 'SET_USER', user });
       router.push('/');
     } catch (error) {
+      clearAuthSession();
+      dispatch({ type: 'SET_USER', user: null });
       if (error instanceof Error && (error.name === 'TypeError' || error.name === 'TimeoutError')) {
         setError('Không thể kết nối đến máy chủ. Vui lòng kiểm tra API và thử lại.');
       } else {
