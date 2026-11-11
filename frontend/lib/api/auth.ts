@@ -8,6 +8,10 @@ export interface AuthResult {
 
 const ACCESS_TOKEN_KEY = 'brewlite_access_token';
 
+export function getAccessToken() {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
 export async function authenticate(
   mode: 'login' | 'register',
   body: { email: string; password: string; name?: string },
@@ -21,7 +25,7 @@ export async function authenticate(
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+  const accessToken = getAccessToken();
   if (!accessToken) return null;
 
   try {

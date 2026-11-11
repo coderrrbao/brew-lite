@@ -1,7 +1,7 @@
 # BrewLite
 
-BrewLite is a coffee shop ordering demo with a **Next.js frontend** and a
-**NestJS mock API**. The frontend runs on port `3000`; the API runs on port
+BrewLite is a coffee shop ordering app with a **Next.js frontend** and a
+**NestJS API backed by PostgreSQL through Prisma**. The frontend runs on port `3000`; the API runs on port
 `4000`.
 
 ## Requirements
@@ -34,6 +34,23 @@ Stop the containers with `Ctrl+C`. To stop and remove them later, run:
 ```powershell
 docker compose down
 ```
+
+### Run published images
+
+The `Docker CI/CD` workflow builds both images for every pull request and
+publishes them to GitHub Container Registry when changes are pushed to `main`.
+To run the latest published images, set the repository owner and pull them:
+
+```powershell
+$env:FRONTEND_IMAGE='ghcr.io/<github-owner>/brewlite-frontend'
+$env:BACKEND_IMAGE='ghcr.io/<github-owner>/brewlite-backend'
+docker compose pull
+docker compose up -d
+```
+
+For a deployment server, configure `DATABASE_URL`, `CORS_ORIGIN`, and
+`JWT_SECRET` as environment variables instead of committing them. Use
+`IMAGE_TAG=sha-<commit-sha>` to deploy an immutable image.
 
 ## Run locally
 
@@ -91,35 +108,34 @@ When running in Docker Compose, `INTERNAL_API_URL` is set to
 - Customize drink size and toppings, then manage the cart.
 - Use the checkout flow and view order confirmation and order history.
 - Use the login and registration screens.
-- Validate promotion codes through the mock API.
-- Continue browsing with local sample products if the API is unavailable.
+- Validate promotion codes through the API and PostgreSQL.
 
 ## API endpoints
 
-The NestJS API currently provides mock/demo endpoints:
+The NestJS API provides these endpoints:
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | `GET` | `/products` | List products |
 | `GET` | `/products/:id` | Get one product |
-| `POST` | `/auth/register` | Register a demo user |
-| `POST` | `/auth/login` | Log in a demo user |
+| `POST` | `/auth/register` | Register a user |
+| `POST` | `/auth/login` | Log in a user |
 | `POST` | `/orders` | Create an order |
-| `GET` | `/orders/me` | Get demo order history |
-| `POST` | `/payments` | Process a demo payment |
+| `GET` | `/orders/me` | Get the authenticated user's order history |
+| `POST` | `/payments` | Process a payment |
 | `GET` | `/promotions` | List active promotion codes |
 | `POST` | `/promotions/validate` | Validate a promotion against a subtotal |
 
-The API uses in-memory mock data; it is not connected to a database. Order
-ownership and payment processing are for demonstration and are not production
-security controls. The frontend also has local fallback data for product
-catalog requests.
+Product, order, payment, promotion, and user data are stored in PostgreSQL
+through Prisma. The frontend does not fall back to local product data when the
+API is unavailable, so configuration or database errors are surfaced instead
+of being hidden by stale local data.
 
 ## Prisma and PostgreSQL
 
 The backend has a PostgreSQL Prisma schema for users, products, orders, order
-items, payments, and promotions. The API still uses mock data; these Prisma
-models are not yet wired into the API services.
+items, payments, and promotions. The API services read and write these models
+through Prisma.
 
 For local development, start PostgreSQL with Docker Compose:
 

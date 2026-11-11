@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { getMyOrders } from '@/lib/api/orders';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
-import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
+import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, SpinnerIcon, btnPrimary, btnOutline, cardCls } from './ui';
 
 const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
   { key: 'PAID', label: 'Đã thanh toán', hint: 'Quầy đã nhận đơn của bạn', Icon: WalletIcon },
@@ -16,9 +17,28 @@ const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: ty
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
+  const [order, setOrder] = useState<Order | undefined>(() => state.orders.find((o) => o.id === id));
+  const [loading, setLoading] = useState(!order);
+  const [error, setError] = useState('');
 
-  const order: Order | undefined = state.orders.find((o) => o.id === id);
+  async function loadOrder() {
+    setLoading(true);
+    setError('');
+    try {
+      const orders = await getMyOrders();
+      dispatch({ type: 'SET_ORDERS', orders });
+      setOrder(orders.find((item) => item.id === id));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không tải được đơn hàng.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!order) void loadOrder();
+  }, [id]);
 
   const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
   const isLive = order?.status === 'PAID';
@@ -29,6 +49,19 @@ export default function ConfirmationPage() {
     const timer = setInterval(() => setTick((t) => Math.min(t + 1, steps.length - 1)), 2500);
     return () => clearInterval(timer);
   }, [order, isLive]);
+
+  if (loading) {
+    return <PageShell className="flex justify-center text-muted-foreground"><span role="status"><SpinnerIcon size={24} /></span></PageShell>;
+  }
+
+  if (error) {
+    return (
+      <PageShell className="text-center">
+        <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>Thử lại</button>
+      </PageShell>
+    );
+  }
 
   if (!order) {
     return (

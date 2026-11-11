@@ -42,11 +42,15 @@ export default function CheckoutPage() {
   if (state.cart.length === 0 && !loading) return null;
 
   async function placeOrder() {
+    if (!state.user) {
+      setError('Vui lòng đăng nhập trước khi thanh toán để lưu đơn hàng.');
+      return;
+    }
     setLoading(true);
     setError('');
     const methodLabel = paymentMethods.find((p) => p.id === method)?.label ?? method;
     const order = await createOrderAndPay({
-      userId: state.user?.id ?? 'guest',
+      userId: state.user.id,
       items: state.cart,
       subtotal: cartTotal,
       discount,

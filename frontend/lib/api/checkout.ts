@@ -1,4 +1,4 @@
-import type { CartItem, Order, OrderItem } from '../store';
+import type { CartItem, Order } from '../store';
 import { createOrder } from './orders';
 import { createPayment } from './payments';
 
@@ -34,30 +34,7 @@ export async function createOrderAndPay(input: {
       payment: paid.payment,
       createdAt: new Date(created.createdAt),
     };
-  } catch {
-    const id = `BL-${Date.now().toString().slice(-8)}`;
-    const items: OrderItem[] = input.items.map(
-      ({ unitPrice: _unitPrice, ...item }) => ({
-        ...item,
-        orderId: id,
-      }),
-    );
-    return {
-      id,
-      userId: input.userId,
-      items,
-      total: input.total,
-      discount: input.discount,
-      voucherCode: input.voucherCode,
-      status: 'PAID',
-      payment: {
-        id: `payment-${Date.now()}`,
-        orderId: id,
-        idempotencyKey,
-        amount: input.total,
-        method: input.methodLabel,
-      },
-      createdAt: new Date(),
-    };
+  } catch (error) {
+    throw error;
   }
 }
