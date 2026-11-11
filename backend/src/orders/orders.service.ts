@@ -44,7 +44,6 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
-    // TODO(repo1): apply a valid promotion and award loyalty points after PAID.
     return this.prisma.$transaction(async (transaction) => {
       await this.products.reserveStock(transaction, dto.items);
       return transaction.order.create({
