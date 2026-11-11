@@ -1,8 +1,39 @@
 import "dotenv/config";
+import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { ConflictException, NotFoundException } from "@nestjs/common";
+import { Client } from "pg";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
+
+async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
+  // Kết nối vào DB "postgres" (luôn tồn tại) để tạo DB test
+  const adminUrl = new URL(databaseUrl);
+  adminUrl.pathname = "/postgres";
+  adminUrl.search = "";
+
+  const admin = new Client({ connectionString: adminUrl.toString() });
+  await admin.connect();
+  try {
+    const { rowCount } = await admin.query(
+      "SELECT 1 FROM pg_database WHERE datname = $1",
+      [databaseName],
+    );
+    if (!rowCount) {
+      await admin.query(
+        `CREATE DATABASE "${databaseName.replace(/"/g, '""')}"`,
+      );
+    }
+  } finally {
+    await admin.end();
+  }
+
+  // Đưa schema vào DB test
+  execSync("pnpm prisma migrate deploy", {
+    stdio: "inherit",
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+  });
+}
 
 describe("PaymentsService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
@@ -22,10 +53,12 @@ describe("PaymentsService (PostgreSQL integration)", () => {
       );
     }
 
+    await ensureTestDatabase(databaseUrl, databaseName);
+
     prisma = new PrismaService();
     await prisma.$connect();
     service = new PaymentsService(prisma);
-  });
+  }, 60_000);
 
   beforeEach(async () => {
     const user = await prisma.user.create({
@@ -43,6 +76,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
   });
 
   afterEach(async () => {
+    if (!prisma || !orderId) return;
     await prisma.payment.deleteMany({ where: { orderId } });
     await prisma.orderItem.deleteMany({ where: { orderId } });
     await prisma.order.delete({ where: { id: orderId } });
