@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { getMyOrders } from '@/lib/api/orders';
-import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
+import { useStore, type Order } from '@/lib/store';
 import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, SpinnerIcon, btnPrimary, btnOutline, cardCls } from './ui';
 
 const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
