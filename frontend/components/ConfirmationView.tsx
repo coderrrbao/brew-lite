@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
 import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
+import { getOrderById } from '@/lib/api/orders';
 
 const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
   { key: 'PAID', label: 'Đã thanh toán', hint: 'Quầy đã nhận đơn của bạn', Icon: WalletIcon },
@@ -16,19 +17,41 @@ const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: ty
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
-  const { state } = useStore();
-
-  const order: Order | undefined = state.orders.find((o) => o.id === id);
-
-  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
-  const isLive = order?.status === 'PAID';
-  const [tick, setTick] = useState(0);
+  const [order, setOrder] = useState<Order | undefined>();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!order || !isLive) return;
-    const timer = setInterval(() => setTick((t) => Math.min(t + 1, steps.length - 1)), 2500);
-    return () => clearInterval(timer);
-  }, [order, isLive]);
+    const token = localStorage.getItem('brewlite_access_token');
+
+    if (!token) {
+      console.error('Không tìm thấy token');
+      setLoading(false);
+      return;
+    }
+
+    getOrderById(id, token)
+      .then((result) => {
+        if (!result) {
+          console.error('Không tìm thấy đơn hàng với ID:', id);
+        }
+
+        setOrder(result);
+      })
+      .catch((error) => {
+        console.error('Lỗi API lấy đơn hàng:', error);
+      })
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
+
+  if (loading) {
+    return (
+      <PageShell className="text-center">
+        <h1>Đang tải đơn hàng...</h1>
+      </PageShell>
+    );
+  }
 
   if (!order) {
     return (
@@ -42,7 +65,7 @@ export default function ConfirmationPage() {
     );
   }
 
-  const activeStep = isLive ? tick : finalIndex;
+  const activeStep = finalIndex;
 
   return (
     <PageShell>
@@ -68,7 +91,7 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current = i === activeStep && i < steps.length - 1 && isLive;
+              const current = i === activeStep && i < steps.length - 1;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">

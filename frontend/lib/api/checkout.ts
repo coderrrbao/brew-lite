@@ -13,16 +13,24 @@ export async function createOrderAndPay(input: {
 }): Promise<Order> {
   const idempotencyKey = `pay-${Date.now()}`;
   try {
+    console.log('Bắt đầu tạo đơn');
+
     const created = await createOrder({
       userId: input.userId,
       items: input.items,
       total: input.total,
     });
+
+    console.log('Tạo đơn thành công:', created);
+
     const paid = await createPayment({
       orderId: created.id,
       method: input.methodLabel,
       idempotencyKey,
     });
+
+    console.log('Thanh toán thành công:', paid);
+
     return {
       id: created.id,
       userId: created.userId,
@@ -30,34 +38,12 @@ export async function createOrderAndPay(input: {
       total: input.total,
       discount: input.discount,
       voucherCode: input.voucherCode,
-      status: paid.status,
-      payment: paid.payment,
+      status: paid.order.status,
+      payment: paid.payment ?? undefined,
       createdAt: new Date(created.createdAt),
     };
-  } catch {
-    const id = `BL-${Date.now().toString().slice(-8)}`;
-    const items: OrderItem[] = input.items.map(
-      ({ unitPrice: _unitPrice, ...item }) => ({
-        ...item,
-        orderId: id,
-      }),
-    );
-    return {
-      id,
-      userId: input.userId,
-      items,
-      total: input.total,
-      discount: input.discount,
-      voucherCode: input.voucherCode,
-      status: 'PAID',
-      payment: {
-        id: `payment-${Date.now()}`,
-        orderId: id,
-        idempotencyKey,
-        amount: input.total,
-        method: input.methodLabel,
-      },
-      createdAt: new Date(),
-    };
+  } catch (error) {
+    console.error('Lỗi tạo đơn hoặc thanh toán:', error);
+    throw error;
   }
 }
