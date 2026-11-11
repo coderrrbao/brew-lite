@@ -43,7 +43,7 @@ export class PaymentsService {
                 orderId: order.id,
                 idempotencyKey: dto.idempotencyKey,
                 amount: order.total,
-                method: 'mock',
+                method: dto.method,
               },
             })
           : null;

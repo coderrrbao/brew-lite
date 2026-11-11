@@ -5,9 +5,11 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { AuthenticatedRequest } from '../auth/auth-user';
 import { StaffGuard } from '../auth/staff.guard';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -22,8 +24,9 @@ export class OrdersController {
 
   
   @Post()
-  create(@Body() dto: CreateOrderDto) {
-    return this.orders.create(dto);
+  @UseGuards(JwtAuthGuard)
+  create(@Body() dto: CreateOrderDto, @Req() req: AuthenticatedRequest) {
+    return this.orders.create({ ...dto, userId: req.user!.sub });
   }
 
   @Get('me')

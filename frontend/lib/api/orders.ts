@@ -1,4 +1,5 @@
 import type { CartItem, Order, OrderItem } from '../store';
+import { getAccessToken } from './auth';
 import { request } from './client';
 
 interface CreatedOrder {
@@ -17,6 +18,7 @@ export function createOrder(input: {
 }) {
   return request<CreatedOrder>('/orders', {
     method: 'POST',
+    headers: { Authorization: ['Bearer', getAccessToken() ?? ''].join(' ') },
     body: JSON.stringify(input),
   });
 }

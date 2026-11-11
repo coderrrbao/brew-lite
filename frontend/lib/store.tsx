@@ -115,7 +115,6 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-
 interface StoreCtx {
   state: State;
   dispatch: React.Dispatch<Action>;

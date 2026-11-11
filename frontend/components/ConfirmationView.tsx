@@ -1,12 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useStore, type Order } from '@/lib/store';
-import { formatPrice } from '@/lib/data';
-import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
 import { getOrderById } from '@/lib/api/orders';
+import { type Order } from '@/lib/store';
+import { formatPrice } from '@/lib/data';
+import {
+  PageShell,
+  Eyebrow,
+  CheckIcon,
+  BellIcon,
+  CupIcon,
+  WalletIcon,
+  StarIcon,
+  btnPrimary,
+  btnOutline,
+  cardCls,
+} from './ui';
 
 const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
   { key: 'PAID', label: 'Đã thanh toán', hint: 'Quầy đã nhận đơn của bạn', Icon: WalletIcon },
@@ -19,29 +30,42 @@ export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | undefined>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadOrder = useCallback(async () => {
     const token = localStorage.getItem('brewlite_access_token');
 
     if (!token) {
       console.error('Không tìm thấy token');
+      setError('Bạn chưa đăng nhập hoặc token đã hết hạn');
       setLoading(false);
       return;
     }
 
-    getOrderById(id, token)
-      .then((result) => {
-        if (!result) {
-          console.error('Không tìm thấy đơn hàng với ID:', id);
-        }
+    if (!id) {
+      setLoading(false);
+      return;
+    }
 
-        setOrder(result);
-      })
-      .catch((error) => {
-        console.error('Lỗi API lấy đơn hàng:', error);
-      })
-      .finally(() => setLoading(false));
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getOrderById(id, token);
+      if (!result) {
+        console.error('Không tìm thấy đơn hàng với ID:', id);
+      }
+      setOrder(result);
+    } catch (err) {
+      console.error('Lỗi API lấy đơn hàng:', err);
+      setError('Không thể tải thông tin đơn hàng');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    void loadOrder();
+  }, [loadOrder]);
 
   const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
 
@@ -49,6 +73,17 @@ export default function ConfirmationPage() {
     return (
       <PageShell className="text-center">
         <h1>Đang tải đơn hàng...</h1>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell className="text-center">
+        <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>
+          Thử lại
+        </button>
       </PageShell>
     );
   }
@@ -81,7 +116,7 @@ export default function ConfirmationPage() {
         <Eyebrow>Mã đơn hàng</Eyebrow>
         <p className="tabular mt-2 font-display text-3xl font-semibold text-accent">{order.id}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
+          {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
         </p>
       </div>
 
