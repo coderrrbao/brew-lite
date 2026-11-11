@@ -11,24 +11,50 @@ import type {
 } from '../generated/prisma/client';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProductsService } from '../products/products.service';
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
   payments: Payment[];
 };
 
+const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
+  PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
+  PAID: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY'],
+  READY: ['COMPLETED'],
+  COMPLETED: [],
+  PAYMENT_FAILED: ['PENDING', 'CANCELLED'],
+  CANCELLED: [],
+};
+
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly products: ProductsService,
+  ) {}
+
+  assertTransition(from: OrderStatus, to: OrderStatus): void {
+    if (!allowedOrderTransitions[from].includes(to)) {
+      throw new ConflictException(
+        `Cannot change order status from ${from} to ${to}`,
+      );
+    }
+  }
 
   async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
-    return this.prisma.order.create({
-      data: {
-        userId: dto.userId,
-        total: dto.total,
-        items: { create: dto.items },
-      },
-      include: { items: true, payments: true },
+    // TODO(repo1): apply a valid promotion and award loyalty points after PAID.
+    return this.prisma.$transaction(async (transaction) => {
+      await this.products.reserveStock(transaction, dto.items);
+      return transaction.order.create({
+        data: {
+          userId: dto.userId,
+          total: dto.total,
+          items: { create: dto.items },
+        },
+        include: { items: true, payments: true },
+      });
     });
   }
 
@@ -46,16 +72,7 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) throw new NotFoundException('Order not found');
 
-    const allowedNextStatuses: Partial<Record<OrderStatus, OrderStatus[]>> = {
-      PAID: ['PREPARING'],
-      PREPARING: ['READY'],
-      READY: ['COMPLETED'],
-    };
-    if (!allowedNextStatuses[order.status]?.includes(status)) {
-      throw new ConflictException(
-        `Cannot change order status from ${order.status} to ${status}`,
-      );
-    }
+    this.assertTransition(order.status, status);
 
     const updated = await this.prisma.order.updateMany({
       where: { id, status: order.status },
@@ -70,4 +87,5 @@ export class OrdersService {
       include: { items: true, payments: true },
     });
   }
+
 }

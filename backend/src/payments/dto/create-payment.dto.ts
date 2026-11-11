@@ -1,27 +1,22 @@
-import { IsBoolean, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { IsBoolean, IsIn, IsOptional, IsString } from "class-validator";
 
-export class CreatePaymentDto {
+export class CreatePaymentBodyDto {
   @IsString()
-  @IsNotEmpty()
   orderId: string;
 
-  @IsString()
-  @IsNotEmpty()
-  idempotencyKey: string;
-
   @IsOptional()
-  @IsIn(["wallet", "card", "momo", "mock"])
+  @IsIn(["zalopay", "card", "momo", "visa"])
+  method?: string;
+}
+
+export interface CreatePaymentDto {
+  orderId: string;
+  idempotencyKey: string;
   method?: string;
 }
 
 export class PayOrderDto {
   @IsString()
-  method?: string;
-
-  @IsString()
-  orderId: string;
-
-  @IsUUID()
   idempotencyKey: string;
 
   @IsBoolean()

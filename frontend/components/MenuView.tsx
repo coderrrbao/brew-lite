@@ -1,42 +1,46 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { formatPrice, type Category, type Product } from '@/lib/data';
-import { useStore } from '@/lib/store';
-import { PageShell, PlusIcon, Eyebrow } from './ui';
+import { useState } from "react";
+import Link from "next/link";
+import { formatPrice, type Category, type Product } from "@/lib/data";
+import { useStore } from "@/lib/store";
+import { PageShell, PlusIcon, Eyebrow } from "./ui";
 
 const categories: { value: Category; label: string }[] = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'hot', label: 'Nóng' },
-  { value: 'cold', label: 'Lạnh' },
-  { value: 'specialty', label: 'Đặc biệt' },
+  { value: "all", label: "Tất cả" },
+  { value: "hot", label: "Nóng" },
+  { value: "cold", label: "Lạnh" },
+  { value: "specialty", label: "Đặc biệt" },
 ];
 
 const steps = [
-  { n: '01', title: 'Chọn đồ uống', text: 'Size và topping theo ý bạn.' },
-  { n: '02', title: 'Thanh toán không tiền mặt', text: 'Ví điện tử hoặc thẻ.' },
-  { n: '03', title: 'Nhận tại quầy', text: 'Báo mã đơn, nhận ly ngay.' },
+  { n: "01", title: "Chọn đồ uống", text: "Size và topping theo ý bạn." },
+  { n: "02", title: "Thanh toán không tiền mặt", text: "Ví điện tử hoặc thẻ." },
+  { n: "03", title: "Nhận tại quầy", text: "Báo mã đơn, nhận ly ngay." },
 ];
 
 export default function MenuView({ products }: { products: Product[] }) {
-  const [active, setActive] = useState<Category>('all');
+  const [active, setActive] = useState<Category>("all");
   const { state } = useStore();
-  const firstName = state.user?.name.split(' ').pop();
+  const firstName = state.user?.name.split(" ").pop();
 
-  const filtered = active === 'all' ? products : products.filter((p) => p.category === active);
-  const featured = products.find((p) => p.id === 'cold-brew') ?? products[0];
+  const filtered =
+    active === "all" ? products : products.filter((p) => p.category === active);
+  const featured = products?.find((p) => p.id === "cold-brew") ?? products[0];
 
   return (
     <PageShell wide>
       <section className="grid items-center gap-8 md:grid-cols-[1.1fr_0.9fr] md:gap-12">
         <div>
-          <Eyebrow>{firstName ? `Chào ${firstName}` : 'Đặt trước, không xếp hàng'}</Eyebrow>
+          <Eyebrow>
+            {firstName ? `Chào ${firstName}` : "Đặt trước, không xếp hàng"}
+          </Eyebrow>
           <h1 className="mt-4 text-[2.5rem] font-semibold leading-[1.1] sm:text-5xl lg:text-6xl">
             Hôm nay bạn muốn uống gì?
           </h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground">
-            Đặt đồ uống và thanh toán không tiền mặt chỉ trong vài chạm, rồi ghé quầy nhận ly khi đã pha xong.
+            Đặt đồ uống và thanh toán không tiền mặt chỉ trong vài chạm, rồi ghé
+            quầy nhận ly khi đã pha xong.
           </p>
           <a
             href="#thuc-don"
@@ -60,17 +64,26 @@ export default function MenuView({ products }: { products: Product[] }) {
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/80">
                 Gợi ý hôm nay
               </p>
-              <p className="font-display text-2xl font-semibold">{featured.name}</p>
+              <p className="font-display text-2xl font-semibold">
+                {featured.name}
+              </p>
             </div>
-            <span className="tabular text-sm font-semibold">{formatPrice(featured.price)}</span>
+            <span className="tabular text-sm font-semibold">
+              {formatPrice(featured.price)}
+            </span>
           </div>
         </Link>
       </section>
 
-      <section aria-label="Quy trình đặt hàng" className="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3">
+      <section
+        aria-label="Quy trình đặt hàng"
+        className="mt-12 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-3"
+      >
         {steps.map((s) => (
           <div key={s.n} className="flex items-start gap-4 bg-card p-5">
-            <span className="font-display text-2xl font-semibold text-accent">{s.n}</span>
+            <span className="font-display text-2xl font-semibold text-accent">
+              {s.n}
+            </span>
             <div>
               <p className="text-[15px] font-semibold">{s.title}</p>
               <p className="mt-0.5 text-sm text-muted-foreground">{s.text}</p>
@@ -82,7 +95,11 @@ export default function MenuView({ products }: { products: Product[] }) {
       <section id="thuc-don" className="scroll-mt-24 pt-14">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-3xl font-semibold sm:text-4xl">Thực đơn</h2>
-          <div role="tablist" aria-label="Lọc theo loại" className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+          <div
+            role="tablist"
+            aria-label="Lọc theo loại"
+            className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 sm:mx-0 sm:px-0"
+          >
             {categories.map((c) => {
               const selected = active === c.value;
               return (
@@ -93,8 +110,8 @@ export default function MenuView({ products }: { products: Product[] }) {
                   onClick={() => setActive(c.value)}
                   className={`h-10 shrink-0 rounded-full border px-5 text-sm font-medium transition ${
                     selected
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-card text-foreground hover:bg-secondary'
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-foreground hover:bg-secondary"
                   }`}
                 >
                   {c.label}
@@ -146,7 +163,9 @@ function ProductCard({ product }: { product: Product }) {
           {product.description}
         </p>
         <div className="mt-auto flex items-center justify-between pt-4">
-          <span className="tabular text-base font-semibold">{formatPrice(product.price)}</span>
+          <span className="tabular text-base font-semibold">
+            {formatPrice(product.price)}
+          </span>
           <span
             aria-hidden="true"
             className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition group-hover:bg-accent"

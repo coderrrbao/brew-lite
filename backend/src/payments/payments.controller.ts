@@ -3,30 +3,29 @@ import {
   Body,
   Controller,
   Headers,
+  Param,
   Post,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
-import { CreatePaymentDto } from "./dto/create-payment.dto";
-// import { JwtAuthGuard } from "../auth/jwt-auth.guard"; // đúng đường dẫn guard của bạn
+import { CreatePaymentBodyDto } from "./dto/create-payment.dto";
 
 @Controller("payments")
 export class PaymentsController {
   constructor(private readonly payments: PaymentsService) {}
 
   @Post()
-  pay(
+  create(
     @Headers("idempotency-key") idempotencyKey: string,
-    @Body() body: CreatePaymentDto,
+    @Body() body: CreatePaymentBodyDto,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException("Idempotency-Key header is required");
     }
-    // success do server/mock gateway quyết định, không nhận từ client
-    return this.payments.pay({
-      orderId: body.orderId,
-      method: body.method,
-      idempotencyKey,
-      success: true,
-    });
+    return this.payments.create({ ...body, idempotencyKey });
+  }
+
+  @Post(":id/confirm")
+  confirm(@Param("id") id: string) {
+    return this.payments.pay({ idempotencyKey: id, success: true });
   }
 }

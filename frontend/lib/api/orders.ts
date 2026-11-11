@@ -1,16 +1,6 @@
 import type { CartItem, Order, OrderItem } from "../store";
 import { request } from "./client";
 
-interface CreatedOrder {
-  id: string;
-  userId?: string;
-  items: OrderItem[];
-  total: number;
-  status: Order["status"];
-  payments: Payment[];
-  createdAt: string;
-}
-
 interface Payment {
   id: string;
   orderId: string;
@@ -24,11 +14,10 @@ export function createOrder(input: {
   userId?: string;
   items: CartItem[];
   total: number;
-  method: string;
   idempotencyKey: string;
 }) {
   const { idempotencyKey } = input;
-  return request<CreatedOrder>("/orders", {
+  return request<Order>("/orders", {
     method: "POST",
     body: JSON.stringify(input),
     headers: { "Idempotency-Key": idempotencyKey },

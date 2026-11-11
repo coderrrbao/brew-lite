@@ -186,6 +186,12 @@ export default function ConfirmationPage() {
               </li>
             ))}
           </ul>
+          {!!order.discount && (
+            <div className="flex justify-between border-t border-border pt-3 text-sm text-success">
+              <span>Mã {order.voucherCode}</span>
+              <span className="tabular font-medium">-{formatPrice(order.discount)}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
             <span className="text-sm text-muted-foreground">
               {order.payment?.method}

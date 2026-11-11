@@ -9,17 +9,22 @@ export function createPayment(input: {
   return request<{
     orderId: string;
     status: Order["status"];
-    payment: Payment;
+    paymentId: string;
+    amount: number;
   }>("/payments", {
     method: "POST",
     body: JSON.stringify(input),
+    headers: { "idempotency-key": input.idempotencyKey },
   });
 }
 
-export function confirmPayment(input: { paymentId: string; success: boolean }) {
+export function confirmPayment(input: {
+  paymentId?: string;
+  success: boolean;
+}) {
   return request<{
     order: Order;
-  }>("/payments/confirm", {
+  }>(`/payments/${input.paymentId}/confirm`, {
     method: "POST",
     body: JSON.stringify(input),
   });

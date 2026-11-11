@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 
 export interface CheckoutSession {
   orderId: string;
-  paymentId: string;
+  paymentId?: string;
   amount: number;
 }
 
@@ -47,6 +47,7 @@ export function useCheckout(method: string) {
 
   const finishPayment = async (success: boolean) => {
     if (!session) return;
+    
     setLoading(true);
     setError("");
     try {

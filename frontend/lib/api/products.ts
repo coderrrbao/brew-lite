@@ -1,9 +1,11 @@
-import { products as localProducts, type Product } from '../data';
-import { request } from './client';
+import { products as localProducts, type Product } from "../data";
+import { request } from "./client";
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    return await request<Product[]>('/products');
+    return await request<Product[]>("/products", {
+      method: "GET",
+    });
   } catch {
     return localProducts;
   }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useStore, type Order } from "@/lib/store";
 import { formatPrice } from "@/lib/data";
-import { createOrderAndPay } from "@/lib/api/checkout";
+// import { createOrderAndPay } from "@/lib/api/checkout";
 import {
   PageShell,
   StickyBar,
