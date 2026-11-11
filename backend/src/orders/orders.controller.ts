@@ -19,7 +19,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
-  // TODO: protect with JwtAuthGuard and read userId from the token
+  
   @Post()
   create(
     @Body() dto: CreateOrderDto,

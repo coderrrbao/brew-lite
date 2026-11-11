@@ -11,14 +11,24 @@ export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findAll() {
-    return await this.prisma.product.findMany();
+    return await this.prisma.product.findMany({
+      where:{
+        active:true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   }
 
   async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+    const product = await this.prisma.product.findFirst({
+      where: { id ,active: true, },
     });
-    if (!product) return null;
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+  
     return product;
   }
 

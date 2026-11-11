@@ -1,9 +1,7 @@
-describe('ProductsService', () => {
-  it.todo('từ chối đặt vượt quá tồn kho khi phiên bản sản phẩm đã thay đổi');
-  /*
+
   import { ConflictException } from '@nestjs/common';
   import { ProductsService } from './products.service';
-
+  describe('ProductsService', () => {
   it('từ chối đặt vượt quá tồn kho khi phiên bản sản phẩm đã thay đổi', async () => {
     const transaction = {
       product: {
@@ -34,5 +32,5 @@ describe('ProductsService', () => {
       },
     });
   });
-  */
+  
 });
