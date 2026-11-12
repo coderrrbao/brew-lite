@@ -2,9 +2,9 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@nestjs/common";
+import { Prisma } from "../generated/prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
 export class ProductsService {
@@ -12,23 +12,23 @@ export class ProductsService {
 
   async findAll() {
     return await this.prisma.product.findMany({
-      where:{
-        active:true,
+      where: {
+        active: true,
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: "desc",
       },
     });
   }
 
   async findOne(id: string) {
     const product = await this.prisma.product.findFirst({
-      where: { id ,active: true, },
+      where: { id, active: true },
     });
     if (!product) {
-      throw new NotFoundException('Product not found');
+      throw new NotFoundException("Product not found");
     }
-  
+
     return product;
   }
 
@@ -47,15 +47,15 @@ export class ProductsService {
     for (const [productId, quantity] of quantities) {
       const product = await transaction.product.findUnique({
         where: { id: productId },
-        select: { id: true, stock: true, version: true },
+        select: { id: true, stock: true },
       });
-      if (!product) throw new NotFoundException('Product not found');
+      if (!product) throw new NotFoundException("Product not found");
 
       const updated = await transaction.product.updateMany({
         where: {
           id: product.id,
           stock: { gte: quantity },
-          version: product.version,
+          // version: product.version,
         },
         data: {
           stock: { decrement: quantity },

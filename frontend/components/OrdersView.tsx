@@ -6,6 +6,7 @@ import { getMyOrders } from '@/lib/api/orders';
 import { useStore, type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
 import { PageShell, ReceiptIcon, SpinnerIcon, btnPrimary, btnOutline, cardCls } from './ui';
+import { getAccessToken } from '@/lib/api/auth';
 
 const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
   PENDING: { label: 'Chờ xử lý', cls: 'bg-[#f6e7c1] text-[#6b4a05]' },
@@ -19,25 +20,49 @@ const statusConfig: Record<Order['status'], { label: string; cls: string }> = {
 
 export default function OrdersPage() {
   const { state, dispatch } = useStore();
-  const [orders, setOrders] = useState<Order[]>(state.orders);
+  const [orders, setOrders] = useState<Order[]>(state.orders || []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   async function loadOrders() {
     setLoading(true);
     setError('');
     try {
       const result = await getMyOrders();
+
+      if (result === null) {
+        throw new Error('Không thể tải lịch sử đơn hàng.');
+      }
+
       setOrders(result);
-      dispatch({ type: 'SET_ORDERS', orders: result });
+
+      dispatch({
+        type: 'SET_ORDERS',
+        orders: result,
+      });
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Không tải được lịch sử đơn hàng.');
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'Không tải được lịch sử đơn hàng.'
+      );
+      setOrders([]);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
+    const token = getAccessToken();
+
+    if (!token) {
+      setIsLoggedIn(false);
+      setLoading(false);
+      return;
+    }
+
+    setIsLoggedIn(true);
     void loadOrders();
   }, []);
 
@@ -46,7 +71,25 @@ export default function OrdersPage() {
       <h1 className="text-4xl font-semibold">Lịch sử đơn hàng</h1>
       <p className="mt-2 text-muted-foreground">Theo dõi trạng thái và xem lại các đơn đã đặt.</p>
 
-      {loading ? (
+      {isLoggedIn === false ? (
+        <div className="mt-14 flex flex-col items-center text-center">
+          <span className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary">
+            <ReceiptIcon size={32} />
+          </span>
+
+          <h2 className="mt-5 text-xl font-semibold">
+            Bạn chưa đăng nhập
+          </h2>
+
+          <p className="mt-2 text-muted-foreground">
+            Vui lòng đăng nhập để xem lịch sử đơn hàng của bạn.
+          </p>
+
+          <Link href="/login" className={`${btnPrimary} mt-6`}>
+            Đăng nhập ngay
+          </Link>
+        </div>
+      ) : loading ? (
         <div className="mt-14 flex justify-center text-muted-foreground" role="status">
           <SpinnerIcon size={24} />
         </div>
@@ -87,7 +130,7 @@ function OrderCard({ order }: { order: Order }) {
         <div>
           <p className="tabular font-semibold">{order.id}</p>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
+            {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${status.cls}`}>{status.label}</span>

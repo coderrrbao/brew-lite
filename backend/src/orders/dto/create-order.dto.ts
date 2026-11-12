@@ -1,13 +1,14 @@
-import { Type } from 'class-transformer';
+import { Type } from "class-transformer";
 import {
   ArrayMinSize,
   IsArray,
   IsInt,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Min,
   ValidateNested,
-} from 'class-validator';
+} from "class-validator";
 
 export class CreateOrderItemDto {
   @IsString()
@@ -49,8 +50,8 @@ export class CreateOrderItemDto {
 
 export class CreateOrderDto {
   @IsString()
-  @IsNotEmpty()
-  userId: string;
+  @IsOptional()
+  userId?: string;
 
   @IsArray()
   @ArrayMinSize(1)
@@ -61,4 +62,9 @@ export class CreateOrderDto {
   @IsInt()
   @Min(0)
   total: number;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  idempotencyKey?: string;
 }
