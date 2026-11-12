@@ -69,7 +69,7 @@ function reducer(state: State, action: Action): State {
           i.productId === action.item.productId &&
           i.size === action.item.size &&
           JSON.stringify(i.toppings.slice().sort()) ===
-            JSON.stringify(action.item.toppings.slice().sort())
+          JSON.stringify(action.item.toppings.slice().sort())
       );
       if (existing) {
         return {
@@ -77,10 +77,10 @@ function reducer(state: State, action: Action): State {
           cart: state.cart.map((i) =>
             i.id === existing.id
               ? {
-                  ...i,
-                  qty: i.qty + action.item.qty,
-                  lineTotal: i.unitPrice * (i.qty + action.item.qty),
-                }
+                ...i,
+                qty: i.qty + action.item.qty,
+                lineTotal: i.unitPrice * (i.qty + action.item.qty),
+              }
               : i
           ),
         };
@@ -103,7 +103,10 @@ function reducer(state: State, action: Action): State {
     case 'PLACE_ORDER':
       return { ...state, orders: [action.order, ...state.orders], cart: [] };
     case 'SET_ORDERS':
-      return { ...state, orders: action.orders };
+      return {
+        ...state,
+        orders: action.orders,
+      };
     case 'SET_USER':
       return { ...state, user: action.user };
     default:
@@ -129,13 +132,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser()
-      .then((user) => {
-        if (active && user) dispatch({ type: 'SET_USER', user });
-      })
-      .catch((error: unknown) => {
-        console.error('Không thể khôi phục phiên đăng nhập:', error);
-      });
+
+    async function loadData() {
+      try {
+        const user = await getCurrentUser();
+
+        if (!active) return;
+
+        dispatch({ type: 'SET_USER', user });
+
+        if (!user) {
+          dispatch({ type: 'SET_ORDERS', orders: [] });
+        }
+      } catch (error) {
+        console.error('Không thể khôi phục đăng nhập:', error);
+      }
+    }
+
+    void loadData();
 
     return () => {
       active = false;
