@@ -15,24 +15,32 @@ export function createPayment(input: {
     payment: Payment | null;
   }>("/payments", {
     method: "POST",
+    headers: {
+      Authorization: ["Bearer", getAccessToken() ?? ""].join(" "),
+      "Idempotency-Key": input.idempotencyKey,
+    },
     body: JSON.stringify({
       orderId: input.orderId,
-      success: true,
-      idempotencyKey: input.idempotencyKey,
+      method: input.method,
     }),
   });
 }
 
 export function confirmPayment(input: {
-  idempotencyKey: string;
+  orderId: string;
   success: boolean;
+  idempotencyKey: string;
 }) {
   return request<{
     order: Order;
-  }>(`/payments/${input.idempotencyKey}/confirm`, {
+  }>(`/payments/${input.orderId}/confirm`, {
+    method: "POST",
+    headers: {
+      Authorization: ["Bearer", getAccessToken() ?? ""].join(" "),
+      "Idempotency-Key": input.idempotencyKey,
+    },
     body: JSON.stringify({
       success: input.success,
-      idempotencyKey: input.idempotencyKey,
     }),
   });
 }

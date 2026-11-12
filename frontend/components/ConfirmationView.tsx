@@ -1,23 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { getOrderById } from '@/lib/api/orders';
-import { type Order } from '@/lib/store';
+import { getMyOrders } from '@/lib/api/orders';
 import { formatPrice } from '@/lib/data';
-import {
-  PageShell,
-  Eyebrow,
-  CheckIcon,
-  BellIcon,
-  CupIcon,
-  WalletIcon,
-  StarIcon,
-  btnPrimary,
-  btnOutline,
-  cardCls,
-} from './ui';
+import { useStore, type Order } from '@/lib/store';
+import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, SpinnerIcon, btnPrimary, btnOutline, cardCls } from './ui';
 
 const steps: Array<{
   key: Order["status"];
@@ -53,62 +42,48 @@ const steps: Array<{
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
-  const [order, setOrder] = useState<Order | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { state, dispatch } = useStore();
+  const [order, setOrder] = useState<Order | undefined>(() => state.orders.find((o) => o.id === id));
+  const [loading, setLoading] = useState(!order);
+  const [error, setError] = useState('');
 
-  const loadOrder = useCallback(async () => {
-    const token = localStorage.getItem('brewlite_access_token');
-
-    if (!token) {
-      console.error('Không tìm thấy token');
-      setError('Bạn chưa đăng nhập hoặc token đã hết hạn');
-      setLoading(false);
-      return;
-    }
-
-    if (!id) {
-      setLoading(false);
-      return;
-    }
-
+  async function loadOrder() {
+    setLoading(true);
+    setError('');
     try {
-      setLoading(true);
-      setError(null);
-      const result = await getOrderById(id, token);
-      if (!result) {
-        console.error('Không tìm thấy đơn hàng với ID:', id);
-      }
-      setOrder(result);
-    } catch (err) {
-      console.error('Lỗi API lấy đơn hàng:', err);
-      setError('Không thể tải thông tin đơn hàng');
+      const orders = await getMyOrders();
+      dispatch({ type: 'SET_ORDERS', orders });
+      setOrder(orders.find((item) => item.id === id));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Không tải được đơn hàng.');
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }
 
   useEffect(() => {
-    void loadOrder();
-  }, [loadOrder]);
+    if (!order) void loadOrder();
+  }, [id]);
 
   const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
+  const isLive = order?.status === 'PAID';
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!order || !isLive) return;
+    const timer = setInterval(() => setTick((t) => Math.min(t + 1, steps.length - 1)), 2500);
+    return () => clearInterval(timer);
+  }, [order, isLive]);
 
   if (loading) {
-    return (
-      <PageShell className="text-center">
-        <h1>Đang tải đơn hàng...</h1>
-      </PageShell>
-    );
+    return <PageShell className="flex justify-center text-muted-foreground"><span role="status"><SpinnerIcon size={24} /></span></PageShell>;
   }
 
   if (error) {
     return (
       <PageShell className="text-center">
         <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
-        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>
-          Thử lại
-        </button>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>Thử lại</button>
       </PageShell>
     );
   }
@@ -127,7 +102,7 @@ export default function ConfirmationPage() {
     );
   }
 
-  const activeStep = finalIndex;
+  const activeStep = isLive ? tick : finalIndex;
 
   return (
     <PageShell>
@@ -147,7 +122,7 @@ export default function ConfirmationPage() {
           {order.id}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
+          {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
         </p>
       </div>
 
@@ -157,7 +132,7 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current = i === activeStep && i < steps.length - 1;
+              const current = i === activeStep && i < steps.length - 1 && isLive;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">

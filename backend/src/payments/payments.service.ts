@@ -11,7 +11,7 @@ import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreatePaymentDto) {
+  async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
     });
@@ -68,7 +68,7 @@ export class PaymentsService {
     };
   }
 
-  async pay(dto: PayOrderDto) {
+  async pay(dto: PayOrderDto & { idempotencyKey: string }) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({
         where: { idempotencyKey: dto.idempotencyKey },

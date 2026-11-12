@@ -22,8 +22,8 @@ export async function createOrderAndPay(input: {
     });
 
     const paid = await createPayment({
-      orderId: created.order.id,
-      method: input.method,
+      orderId: created.id,
+      method: input.method || "mock",
       idempotencyKey: input.idempotencyKey,
     });
 
@@ -37,7 +37,7 @@ export async function createOrderAndPay(input: {
       // status: paid.order.status,
       // payment: paid.payment ?? undefined,
       // createdAt: new Date(created.createdAt),
-      orderId: created.order.id,
+      orderId: created.id,
       paymentId: paid.payment?.id,
       amount: paid.payment?.amount,
       idempotencyKey: input.idempotencyKey,

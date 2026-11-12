@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 export interface CheckoutSession {
   orderId: string;
   paymentId?: string;
-  idempotencyKey: string
+  idempotencyKey: string;
   amount?: number;
 }
 
@@ -48,13 +48,14 @@ export function useCheckout(method: string) {
 
   const finishPayment = async (success: boolean) => {
     if (!session) return;
-    
+
     setLoading(true);
     setError("");
     try {
       const result = await confirmPayment({
-        idempotencyKey: session.idempotencyKey,
+        orderId: session.orderId,
         success,
+        idempotencyKey: session.idempotencyKey,
       });
 
       if (result.order.status === "PAID") {

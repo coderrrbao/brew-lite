@@ -7,7 +7,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
-import { CreatePaymentDto } from "./dto/create-payment.dto";
+import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 
 @Controller("payments")
 export class PaymentsController {
@@ -25,7 +25,13 @@ export class PaymentsController {
   }
 
   @Post(":id/confirm")
-  confirm(@Param("id") id: string) {
-    return this.payments.pay({ idempotencyKey: id, success: true });
+  confirm(
+    @Headers("idempotency-key") idempotencyKey: string,
+    @Body() body: PayOrderDto,
+  ) {
+    return this.payments.pay({
+      idempotencyKey: idempotencyKey,
+      success: body.success,
+    });
   }
 }

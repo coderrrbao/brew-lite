@@ -3,19 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import type {
-  Order,
-  OrderItem,
-  OrderStatus,
-  Payment,
-} from "../generated/prisma/client";
+import type { Order, OrderItem, OrderStatus } from "../generated/prisma/client";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProductsService } from "../products/products.service";
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
-  // payments: Payment[];
 };
 
 const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
@@ -50,7 +44,7 @@ export class OrdersService {
         data: {
           userId: dto.userId,
           total: dto.total,
-          items: { create: dto.items },
+          items: { create: dto.items.map(({ id, ...rest }) => rest) },
         },
         include: { items: true },
       });

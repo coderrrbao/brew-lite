@@ -7,17 +7,9 @@ export class CreatePaymentDto {
   @IsString()
   @IsNotEmpty()
   method: string;
-
-  @IsString()
-  @IsNotEmpty()
-  idempotencyKey: string
 }
 
-export class PayOrderDto{
+export class PayOrderDto {
   @IsBoolean()
-  success: boolean
-
-  @IsString()
-  @IsNotEmpty()
-  idempotencyKey: string
+  success: boolean;
 }
