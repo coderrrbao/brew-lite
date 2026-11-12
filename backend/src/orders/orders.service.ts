@@ -44,7 +44,18 @@ export class OrdersService {
         data: {
           userId: dto.userId,
           total: dto.total,
-          items: { create: dto.items.map(({ id, ...rest }) => rest) },
+          items: {
+            create: dto.items.map((item) => ({
+              productId: item.productId,
+              name: item.name,
+              imageUrl: item.imageUrl,
+              size: item.size,
+              toppings: item.toppings,
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+              lineTotal: item.lineTotal,
+            })),
+          },
         },
         include: { items: true },
       });

@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Headers,
-  Param,
   Post,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
