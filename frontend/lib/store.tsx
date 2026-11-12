@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { getCurrentUser } from './api/auth';
-import { getMyOrders } from './api/orders';
 
 export interface CartItem {
   id: string;
@@ -104,10 +103,7 @@ function reducer(state: State, action: Action): State {
     case 'PLACE_ORDER':
       return { ...state, orders: [action.order, ...state.orders], cart: [] };
     case 'SET_ORDERS':
-      return {
-        ...state,
-        orders: action.orders,
-      };
+      return { ...state, orders: action.orders };
     case 'SET_USER':
       return { ...state, user: action.user };
     default:
@@ -133,43 +129,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let active = true;
-
-    async function loadData() {
-      try {
-        const user = await getCurrentUser();
-
-        if (!active) return;
-
-        dispatch({ type: 'SET_USER', user });
-
-        if (!user) {
-          dispatch({ type: 'SET_ORDERS', orders: [] });
-          return;
-        }
-
-        // Lấy access token từ localStorage
-        const token = localStorage.getItem('brewlite_access_token');
-
-        if (!token) {
-          console.error('Không tìm thấy access token');
-          return;
-        }
-
-        // Lấy lịch sử đơn hàng từ API
-        const orders = await getMyOrders(token);
-
-        if (active && orders !== null) {
-          dispatch({
-            type: 'SET_ORDERS',
-            orders,
-          });
-        }
-      } catch (error) {
-        console.error('Không thể tải lịch sử đơn hàng:', error);
-      }
-    }
-
-    loadData();
+    getCurrentUser()
+      .then((user) => {
+        if (active && user) dispatch({ type: 'SET_USER', user });
+      })
+      .catch((error: unknown) => {
+        console.error('Không thể khôi phục phiên đăng nhập:', error);
+      });
 
     return () => {
       active = false;
