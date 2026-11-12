@@ -2,29 +2,23 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import type {
-  Order,
-  OrderItem,
-  OrderStatus,
-  Payment,
-} from '../generated/prisma/client';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { ProductsService } from '../products/products.service';
+} from "@nestjs/common";
+import type { Order, OrderItem, OrderStatus } from "../generated/prisma/client";
+import { CreateOrderDto } from "./dto/create-order.dto";
+import { PrismaService } from "../prisma/prisma.service";
+import { ProductsService } from "../products/products.service";
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
-  payments: Payment[];
 };
 
 const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
-  PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
-  PAID: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY'],
-  READY: ['COMPLETED'],
+  PENDING: ["PAID", "PAYMENT_FAILED", "CANCELLED"],
+  PAID: ["PREPARING", "CANCELLED"],
+  PREPARING: ["READY"],
+  READY: ["COMPLETED"],
   COMPLETED: [],
-  PAYMENT_FAILED: ['PENDING', 'CANCELLED'],
+  PAYMENT_FAILED: ["PENDING", "CANCELLED"],
   CANCELLED: [],
 };
 
@@ -50,9 +44,20 @@ export class OrdersService {
         data: {
           userId: dto.userId,
           total: dto.total,
-          items: { create: dto.items },
+          items: {
+            create: dto.items.map((item) => ({
+              productId: item.productId,
+              name: item.name,
+              imageUrl: item.imageUrl,
+              size: item.size,
+              toppings: item.toppings,
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+              lineTotal: item.lineTotal,
+            })),
+          },
         },
-        include: { items: true, payments: true },
+        include: { items: true },
       });
     });
   }
@@ -60,8 +65,8 @@ export class OrdersService {
   async findMine(userId: string): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
       where: { userId },
-      include: { items: true, payments: true },
-      orderBy: { createdAt: 'desc' },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -70,7 +75,7 @@ export class OrdersService {
     status: OrderStatus,
   ): Promise<OrderWithRelations> {
     const order = await this.prisma.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+    if (!order) throw new NotFoundException("Order not found");
 
     this.assertTransition(order.status, status);
 
@@ -79,13 +84,12 @@ export class OrdersService {
       data: { status },
     });
     if (updated.count === 0) {
-      throw new ConflictException('Order status changed concurrently');
+      throw new ConflictException("Order status changed concurrently");
     }
 
     return this.prisma.order.findUniqueOrThrow({
       where: { id },
-      include: { items: true, payments: true },
+      include: { items: true },
     });
   }
-
 }

@@ -1,45 +1,41 @@
-import type { CartItem, Order } from '../store';
-import { createOrder } from './orders';
-import { createPayment } from './payments';
+import { CheckoutSession } from "@/hooks/useCheckout";
+import type { CartItem, Order } from "../store";
+import { createOrder } from "./orders";
+import { createPayment } from "./payments";
 
 export async function createOrderAndPay(input: {
-  userId: string;
+  userId?: string;
   items: CartItem[];
-  subtotal: number;
-  discount: number;
+  // subtotal: number;
+  discount?: number;
   voucherCode?: string;
   total: number;
-  methodLabel: string;
-}): Promise<Order> {
-  const idempotencyKey = `pay-${Date.now()}`;
+  method: string;
+  idempotencyKey: string;
+}): Promise<CheckoutSession> {
   try {
-
     const created = await createOrder({
       userId: input.userId,
       items: input.items,
       total: input.total,
+      idempotencyKey: input.idempotencyKey,
     });
-
 
     const paid = await createPayment({
       orderId: created.id,
-      method: input.methodLabel,
-      idempotencyKey,
+      method: input.method || "mock",
+      idempotencyKey: input.idempotencyKey,
     });
 
-
     return {
-      id: created.id,
-      userId: created.userId,
-      items: created.items,
-      total: input.total,
-      discount: input.discount,
-      voucherCode: input.voucherCode,
-      status: paid.order.status,
-      payment: paid.payment ?? undefined,
-      createdAt: new Date(created.createdAt),
+      orderId: created.id,
+      paymentId: paid.payment?.id,
+      amount: paid.payment?.amount,
+      idempotencyKey: input.idempotencyKey,
     };
   } catch (error) {
     throw error;
   }
 }
+
+// export { confirmPayment };

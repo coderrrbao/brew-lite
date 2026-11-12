@@ -1,31 +1,18 @@
-import type { CartItem, Order, OrderItem } from '../store';
-import { getAccessToken } from './auth';
-import { request } from './client';
-
-interface CreatedOrder {
-  id: string;
-  userId: string;
-  items: OrderItem[];
-  total: number;
-  status: Order['status'];
-  createdAt: string;
-}
+import type { CartItem, Order } from "../store";
+import { getAccessToken } from "./auth";
+import { request } from "./client";
 
 export function createOrder(input: {
-  userId: string;
+  userId?: string;
   items: CartItem[];
   total: number;
+  idempotencyKey: string;
 }) {
-  const token = getAccessToken();
-
-  if (!token) {
-    throw new Error('Bạn chưa đăng nhập.');
-  }
-
-  return request<CreatedOrder>('/orders', {
-    method: 'POST',
+  return request<Order>("/orders", {
+    method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: ["Bearer", getAccessToken() ?? ""].join(" "),
+      "Idempotency-Key": input.idempotencyKey,
     },
     body: JSON.stringify(input),
   });

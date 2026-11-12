@@ -18,7 +18,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth-user';
 
 
-@Controller('orders')
+@Controller("orders")
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
