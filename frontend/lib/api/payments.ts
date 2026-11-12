@@ -8,12 +8,18 @@ export function createPayment(input: {
   idempotencyKey: string;
 }) {
   return request<{
-    orderId: string;
-    status: Order['status'];
-    payment: Payment;
+    order: {
+      id: string;
+      status: Order['status'];
+    };
+    payment: Payment | null;
   }>('/payments', {
     method: 'POST',
-    headers: { Authorization: ['Bearer', getAccessToken() ?? ''].join(' ') },
-    body: JSON.stringify({ ...input, success: true }),
+    body: JSON.stringify({
+      orderId: input.orderId,
+      method: input.method,
+      success: true,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
 }
