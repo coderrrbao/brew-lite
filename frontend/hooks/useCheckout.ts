@@ -7,7 +7,8 @@ import { useRef, useState } from "react";
 export interface CheckoutSession {
   orderId: string;
   paymentId?: string;
-  amount: number;
+  idempotencyKey: string
+  amount?: number;
 }
 
 export function useCheckout(method: string) {
@@ -52,7 +53,7 @@ export function useCheckout(method: string) {
     setError("");
     try {
       const result = await confirmPayment({
-        paymentId: session.paymentId,
+        idempotencyKey: session.idempotencyKey,
         success,
       });
 

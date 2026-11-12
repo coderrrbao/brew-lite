@@ -1,4 +1,5 @@
 import type { Order, Payment } from "../store";
+import { getAccessToken } from "./auth";
 import { request } from "./client";
 
 export function createPayment(input: {
@@ -7,25 +8,31 @@ export function createPayment(input: {
   idempotencyKey: string;
 }) {
   return request<{
-    orderId: string;
-    status: Order["status"];
-    paymentId: string;
-    amount: number;
+    order: {
+      id: string;
+      status: Order["status"];
+    };
+    payment: Payment | null;
   }>("/payments", {
     method: "POST",
-    body: JSON.stringify(input),
-    headers: { "idempotency-key": input.idempotencyKey },
+    body: JSON.stringify({
+      orderId: input.orderId,
+      success: true,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
 }
 
 export function confirmPayment(input: {
-  paymentId?: string;
+  idempotencyKey: string;
   success: boolean;
 }) {
   return request<{
     order: Order;
-  }>(`/payments/${input.paymentId}/confirm`, {
-    method: "POST",
-    body: JSON.stringify(input),
+  }>(`/payments/${input.idempotencyKey}/confirm`, {
+    body: JSON.stringify({
+      success: input.success,
+      idempotencyKey: input.idempotencyKey,
+    }),
   });
 }

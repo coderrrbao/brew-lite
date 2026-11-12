@@ -87,8 +87,16 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     await prisma?.$disconnect();
   });
 
-  const createPayment = (key = randomUUID(), targetOrderId = orderId) =>
-    service.create({ orderId: targetOrderId, idempotencyKey: key });
+  const createPayment = (
+    key = randomUUID(),
+    targetOrderId = orderId,
+    method = "mock",
+  ) =>
+    service.create({
+      orderId: targetOrderId,
+      method: method,
+      idempotencyKey: key,
+    });
 
   const getOrder = () =>
     prisma.order.findUniqueOrThrow({

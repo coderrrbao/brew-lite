@@ -24,9 +24,8 @@ export default function MenuView({ products }: { products: Product[] }) {
   const { state } = useStore();
   const firstName = state.user?.name.split(" ").pop();
 
-  const filtered =
-    active === "all" ? products : products.filter((p) => p.category === active);
-  const featured = products?.find((p) => p.id === "cold-brew") ?? products[0];
+  const filtered = active === 'all' ? products : products.filter((p) => p.category === active);
+  const featured = products.find((p) => p.popular) ?? products[0];
 
   return (
     <PageShell wide>

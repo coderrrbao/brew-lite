@@ -71,7 +71,33 @@ export default function CheckoutPage() {
   }, [cart.length, loading, router]);
   if (cart.length === 0 && !loading) return null;
 
-  const points = Math.floor(cartTotal / 1000);
+  // async function placeOrder() {
+  //   if (!state.user) {
+  //     setError('Vui lòng đăng nhập trước khi thanh toán để lưu đơn hàng.');
+  //     return;
+  //   }
+  //   setLoading(true);
+  //   setError('');
+  //   const methodLabel = paymentMethods.find((p) => p.id === method)?.label ?? method;
+  //   const order = await createOrderAndPay({
+  //     userId: state.user.id,
+  //     items: state.cart,
+  //     subtotal: cartTotal,
+  //     discount,
+  //     voucherCode: voucher?.code,
+  //     total: payable,
+  //     methodLabel,
+  //   });
+  //   if (order.status === 'PAYMENT_FAILED') {
+  //     setError('Thanh toán không thành công. Giỏ hàng được giữ nguyên, vui lòng thử lại.');
+  //     setLoading(false);
+  //     return;
+  //   }
+  //   dispatch({ type: 'PLACE_ORDER', order });
+  //   router.replace(`/confirmation/${order.id}`);
+  // }
+
+  const points = session ? Math.floor(session?.amount / 1000) : 0;
 
   const payButton = (
     <button

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 import { getCurrentUser } from './api/auth';
+import { getMyOrders } from './api/orders';
 
 export interface CartItem {
   id: string;
@@ -58,6 +59,7 @@ type Action =
   | { type: 'UPDATE_QTY'; id: string; qty: number }
   | { type: 'CLEAR_CART' }
   | { type: 'PLACE_ORDER'; order: Order }
+  | { type: 'SET_ORDERS'; orders: Order[] }
   | { type: 'SET_USER'; user: User | null };
 
 function reducer(state: State, action: Action): State {
@@ -101,69 +103,17 @@ function reducer(state: State, action: Action): State {
       return { ...state, cart: [] };
     case 'PLACE_ORDER':
       return { ...state, orders: [action.order, ...state.orders], cart: [] };
+    case 'SET_ORDERS':
+      return {
+        ...state,
+        orders: action.orders,
+      };
     case 'SET_USER':
       return { ...state, user: action.user };
     default:
       return state;
   }
 }
-
-const sampleOrders: Order[] = [
-  {
-    id: 'BL-20260920-001',
-    userId: 'u_1',
-    items: [
-      {
-        id: 'hist-1',
-        orderId: 'BL-20260920-001',
-        productId: 'latte',
-        name: 'Caffe Latte',
-        imageUrl: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&auto=format',
-        size: 'M',
-        toppings: ['cream-foam'],
-        qty: 2,
-        lineTotal: 122000,
-      },
-    ],
-    total: 122000,
-    status: 'COMPLETED',
-    payment: {
-      id: 'payment-001',
-      orderId: 'BL-20260920-001',
-      idempotencyKey: 'mock-pay-001',
-      amount: 122000,
-      method: 'Ví MoMo',
-    },
-    createdAt: new Date('2026-09-20T10:30:00'),
-  },
-  {
-    id: 'BL-20260922-003',
-    userId: 'u_1',
-    items: [
-      {
-        id: 'hist-2',
-        orderId: 'BL-20260922-003',
-        productId: 'cold-brew',
-        name: 'Cold Brew',
-        imageUrl: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?fit=crop&auto=format',
-        size: 'L',
-        toppings: [],
-        qty: 1,
-        lineTotal: 70000,
-      },
-    ],
-    total: 70000,
-    status: 'READY',
-    payment: {
-      id: 'payment-002',
-      orderId: 'BL-20260922-003',
-      idempotencyKey: 'mock-pay-002',
-      amount: 70000,
-      method: 'Thẻ nội địa',
-    },
-    createdAt: new Date('2026-09-22T14:15:00'),
-  },
-];
 
 interface StoreCtx {
   state: State;
@@ -177,19 +127,49 @@ const StoreContext = createContext<StoreCtx | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, {
     cart: [],
-    orders: sampleOrders,
+    orders: [],
     user: null,
   });
 
   useEffect(() => {
     let active = true;
-    getCurrentUser()
-      .then((user) => {
-        if (active && user) dispatch({ type: 'SET_USER', user });
-      })
-      .catch((error: unknown) => {
-        console.error('Không thể khôi phục phiên đăng nhập:', error);
-      });
+
+    async function loadData() {
+      try {
+        const user = await getCurrentUser();
+
+        if (!active) return;
+
+        dispatch({ type: 'SET_USER', user });
+
+        if (!user) {
+          dispatch({ type: 'SET_ORDERS', orders: [] });
+          return;
+        }
+
+        // Lấy access token từ localStorage
+        const token = localStorage.getItem('brewlite_access_token');
+
+        if (!token) {
+          console.error('Không tìm thấy access token');
+          return;
+        }
+
+        // Lấy lịch sử đơn hàng từ API
+        const orders = await getMyOrders(token);
+
+        if (active && orders !== null) {
+          dispatch({
+            type: 'SET_ORDERS',
+            orders,
+          });
+        }
+      } catch (error) {
+        console.error('Không thể tải lịch sử đơn hàng:', error);
+      }
+    }
+
+    loadData();
 
     return () => {
       active = false;

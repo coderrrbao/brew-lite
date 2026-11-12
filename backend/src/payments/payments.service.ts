@@ -15,15 +15,17 @@ export class PaymentsService {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
     });
-    if (!order) throw new NotFoundException("Đơn hàng không tồn tại");
+    if (!order) {
+      throw new NotFoundException("Đơn hàng không tồn tại");
+    }
 
     let payment = await this.prisma.payment.findUnique({
       where: { idempotencyKey: dto.idempotencyKey },
     });
 
     if (!payment) {
-      if (order.status !== "PENDING" && order.status !== "PAYMENT_FAILED") {
-        throw new ConflictException("Đơn hàng không thể thanh toán");
+      if (!["PENDING", "PAYMENT_FAILED"].includes(order.status)) {
+        throw new ConflictException("Order is not payable");
       }
 
       try {
@@ -32,20 +34,20 @@ export class PaymentsService {
             orderId: order.id,
             idempotencyKey: dto.idempotencyKey,
             amount: order.total,
-            method: dto.method ?? "mock",
+            method: dto.method,
             status: "PENDING",
           },
         });
-      } catch (e) {
+      } catch (error) {
         if (
-          e instanceof Prisma.PrismaClientKnownRequestError &&
-          e.code === "P2002"
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
         ) {
           payment = await this.prisma.payment.findUniqueOrThrow({
             where: { idempotencyKey: dto.idempotencyKey },
           });
         } else {
-          throw e;
+          throw error;
         }
       }
     }
@@ -72,7 +74,9 @@ export class PaymentsService {
         where: { idempotencyKey: dto.idempotencyKey },
         include: { order: { include: { items: true } } },
       });
-      if (!payment) throw new NotFoundException("Payment key not found");
+      if (!payment) {
+        throw new NotFoundException("Payment key not found");
+      }
 
       if (payment.status !== "PENDING") {
         return {
@@ -114,8 +118,9 @@ export class PaymentsService {
         },
         data: { status: dto.success ? "PAID" : "PAYMENT_FAILED" },
       });
+
       if (updated.count === 0) {
-        throw new ConflictException("Order is not payable"); // rollback payment
+        throw new ConflictException("Order is not payable");
       }
 
       const updatedPayment = await tx.payment.findUniqueOrThrow({
@@ -132,5 +137,4 @@ export class PaymentsService {
       };
     });
   }
-
 }

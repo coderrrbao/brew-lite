@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useStore, type Order } from "@/lib/store";
-import { formatPrice } from "@/lib/data";
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { getOrderById } from '@/lib/api/orders';
+import { type Order } from '@/lib/store';
+import { formatPrice } from '@/lib/data';
 import {
   PageShell,
   Eyebrow,
@@ -16,7 +17,7 @@ import {
   btnPrimary,
   btnOutline,
   cardCls,
-} from "./ui";
+} from './ui';
 
 const steps: Array<{
   key: Order["status"];
@@ -52,27 +53,65 @@ const steps: Array<{
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
-  const { state } = useStore();
+  const [order, setOrder] = useState<Order | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const order: Order | undefined = state.orders.find((o) => o.id === id);
+  const loadOrder = useCallback(async () => {
+    const token = localStorage.getItem('brewlite_access_token');
 
-  const finalIndex = order
-    ? Math.max(
-        0,
-        steps.findIndex((s) => s.key === order.status),
-      )
-    : 0;
-  const isLive = order?.status === "PAID";
-  const [tick, setTick] = useState(0);
+    if (!token) {
+      console.error('Không tìm thấy token');
+      setError('Bạn chưa đăng nhập hoặc token đã hết hạn');
+      setLoading(false);
+      return;
+    }
+
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getOrderById(id, token);
+      if (!result) {
+        console.error('Không tìm thấy đơn hàng với ID:', id);
+      }
+      setOrder(result);
+    } catch (err) {
+      console.error('Lỗi API lấy đơn hàng:', err);
+      setError('Không thể tải thông tin đơn hàng');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    if (!order || !isLive) return;
-    const timer = setInterval(
-      () => setTick((t) => Math.min(t + 1, steps.length - 1)),
-      2500,
+    void loadOrder();
+  }, [loadOrder]);
+
+  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
+
+  if (loading) {
+    return (
+      <PageShell className="text-center">
+        <h1>Đang tải đơn hàng...</h1>
+      </PageShell>
     );
-    return () => clearInterval(timer);
-  }, [order, isLive]);
+  }
+
+  if (error) {
+    return (
+      <PageShell className="text-center">
+        <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>
+          Thử lại
+        </button>
+      </PageShell>
+    );
+  }
 
   if (!order) {
     return (
@@ -88,7 +127,7 @@ export default function ConfirmationPage() {
     );
   }
 
-  const activeStep = isLive ? tick : finalIndex;
+  const activeStep = finalIndex;
 
   return (
     <PageShell>
@@ -108,10 +147,7 @@ export default function ConfirmationPage() {
           {order.id}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {order.createdAt.toLocaleString("vi-VN", {
-            dateStyle: "full",
-            timeStyle: "short",
-          })}
+          {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
         </p>
       </div>
 
@@ -121,8 +157,7 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current =
-                i === activeStep && i < steps.length - 1 && isLive;
+              const current = i === activeStep && i < steps.length - 1;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">

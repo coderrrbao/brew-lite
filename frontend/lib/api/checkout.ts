@@ -1,7 +1,7 @@
 import { CheckoutSession } from "@/hooks/useCheckout";
 import type { CartItem, Order } from "../store";
 import { createOrder } from "./orders";
-import { confirmPayment, createPayment } from "./payments";
+import { createPayment } from "./payments";
 
 export async function createOrderAndPay(input: {
   userId?: string;
@@ -20,8 +20,9 @@ export async function createOrderAndPay(input: {
       total: input.total,
       idempotencyKey: input.idempotencyKey,
     });
+
     const paid = await createPayment({
-      orderId: created.id,
+      orderId: created.order.id,
       method: input.method,
       idempotencyKey: input.idempotencyKey,
     });
@@ -33,16 +34,17 @@ export async function createOrderAndPay(input: {
       // total: input.total,
       // discount: input.discount,
       // voucherCode: input.voucherCode,
-      // status: paid.status,
-      // payment: paid.payment,
+      // status: paid.order.status,
+      // payment: paid.payment ?? undefined,
       // createdAt: new Date(created.createdAt),
-      orderId: created.id,
-      paymentId: paid.paymentId,
-      amount: created.total,
+      orderId: created.order.id,
+      paymentId: paid.payment?.id,
+      amount: paid.payment?.amount,
+      idempotencyKey: input.idempotencyKey,
     };
-  } catch {
-    throw new Error("Tạo đơn hàng thất bại");
+  } catch (error) {
+    throw error;
   }
 }
 
-export { confirmPayment };
+// export { confirmPayment };

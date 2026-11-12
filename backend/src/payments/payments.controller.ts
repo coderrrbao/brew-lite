@@ -7,7 +7,7 @@ import {
   Post,
 } from "@nestjs/common";
 import { PaymentsService } from "./payments.service";
-import { CreatePaymentBodyDto } from "./dto/create-payment.dto";
+import { CreatePaymentDto } from "./dto/create-payment.dto";
 
 @Controller("payments")
 export class PaymentsController {
@@ -16,7 +16,7 @@ export class PaymentsController {
   @Post()
   create(
     @Headers("idempotency-key") idempotencyKey: string,
-    @Body() body: CreatePaymentBodyDto,
+    @Body() body: CreatePaymentDto,
   ) {
     if (!idempotencyKey) {
       throw new BadRequestException("Idempotency-Key header is required");

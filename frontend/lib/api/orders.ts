@@ -1,13 +1,11 @@
-import type { CartItem, Order, OrderItem } from "../store";
+import type { CartItem, Order, OrderItem, Payment } from "../store";
+import { getAccessToken } from "./auth";
 import { request } from "./client";
 
-interface Payment {
-  id: string;
-  orderId: string;
-  idempotencyKey: string;
-  amount: number;
-  method: string;
-  status: string;
+interface CreatedOrder {
+  order: Order & {
+    items: OrderItem[];
+  };
 }
 
 export function createOrder(input: {
@@ -16,26 +14,44 @@ export function createOrder(input: {
   total: number;
   idempotencyKey: string;
 }) {
-  const { idempotencyKey } = input;
-  return request<Order>("/orders", {
+  return request<CreatedOrder>("/orders", {
     method: "POST",
+    headers: {
+      Authorization: ["Bearer", getAccessToken() ?? ""].join(" "),
+      "Idempotency-Key": input.idempotencyKey,
+    },
     body: JSON.stringify(input),
-    headers: { "Idempotency-Key": idempotencyKey },
   });
 }
 
 export async function getMyOrders(token?: string): Promise<Order[] | null> {
   try {
     const rows = await request<
-      Array<Omit<Order, "createdAt"> & { createdAt: string }>
+      Array<
+        Omit<Order, "createdAt"> & {
+          createdAt: string;
+          payments?: Order["payment"][];
+        }
+      >
     >("/orders/me", {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
     return rows.map((order) => ({
       ...order,
       createdAt: new Date(order.createdAt),
+      payment: order.payments?.[0],
     }));
   } catch {
     return null;
   }
+}
+export async function getOrderById(
+  id: string,
+  token: string,
+): Promise<Order | undefined> {
+  const orders = await getMyOrders(token);
+
+  if (!orders) return undefined;
+
+  return orders.find((order) => order.id === id);
 }
