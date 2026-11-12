@@ -1,6 +1,6 @@
 import { createOrderAndPay } from "@/lib/api/checkout";
 import { confirmPayment } from "@/lib/api/payments";
-import { useStore } from "@/lib/store";
+import { OrderItem, useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 

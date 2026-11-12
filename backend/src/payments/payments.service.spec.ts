@@ -29,10 +29,12 @@ async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
   }
 
   // Đưa schema vào DB test
-  execSync("pnpm prisma migrate deploy", {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: databaseUrl },
-  });
+  if (!process.env.CI) {
+    execSync("pnpm prisma migrate deploy", {
+      stdio: "inherit",
+      env: { ...process.env, DATABASE_URL: databaseUrl },
+    });
+  }
 }
 
 describe("PaymentsService (PostgreSQL integration)", () => {

@@ -28,15 +28,6 @@ export async function createOrderAndPay(input: {
     });
 
     return {
-      // id: created.id,
-      // userId: created.userId,
-      // items: created.items,
-      // total: input.total,
-      // discount: input.discount,
-      // voucherCode: input.voucherCode,
-      // status: paid.order.status,
-      // payment: paid.payment ?? undefined,
-      // createdAt: new Date(created.createdAt),
       orderId: created.id,
       paymentId: paid.payment?.id,
       amount: paid.payment?.amount,

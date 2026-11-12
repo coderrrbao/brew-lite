@@ -20,13 +20,37 @@ export function createOrder(input: {
 
 export async function getMyOrders(): Promise<Order[]> {
   const token = getAccessToken();
+
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
   const rows = await request<
-    Array<Omit<Order, "createdAt"> & { createdAt: string }>
-  >("/orders/me", {
-    headers: token ? { Authorization: ["Bearer", token].join(" ") } : undefined,
+    Array<
+      Omit<Order, 'createdAt'> & {
+        createdAt: string;
+        payments?: Order['payment'][];
+      }
+    >
+  >('/orders/me', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
   });
+
   return rows.map((order) => ({
     ...order,
     createdAt: new Date(order.createdAt),
+    payment: order.payments?.[0],
   }));
+}
+
+export async function getOrderById(
+  id: string,
+): Promise<Order | undefined> {
+  const orders = await getMyOrders();
+
+  if (!orders) return undefined;
+
+  return orders.find((order) => order.id === id);
 }
