@@ -35,7 +35,7 @@ export async function createOrderAndPay(input: {
       total: input.total,
       discount: input.discount,
       voucherCode: input.voucherCode,
-      status: paid.order.status,
+        status: paid.status,   
       payment: paid.payment ?? undefined,
       createdAt: new Date(created.createdAt),
     };
