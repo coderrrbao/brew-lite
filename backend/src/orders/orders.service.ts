@@ -1,5 +1,4 @@
 ﻿import {
-  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -46,9 +45,13 @@ export class OrdersService {
       let discountAmount = 0;
       let appliedCode: string | null = null;
       if (dto.promotionCode) {
-        const promo = await this.promotion.validate(dto.promotionCode, {
-          total: subTotal,
-        }, dto.userId);
+        const promo = await this.promotion.validate(
+          dto.promotionCode,
+          {
+            total: subTotal,
+          },
+          dto.userId,
+        );
 
         discountAmount = promo.discountAmount;
         appliedCode = promo.code;

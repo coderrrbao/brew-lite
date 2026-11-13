@@ -211,7 +211,7 @@ export default function ConfirmationPage() {
           </ul>
           {!!order.discount && (
             <div className="flex justify-between border-t border-border pt-3 text-sm text-success">
-              <span>Mã {order.voucherCode}</span>
+              <span>Mã {order.promotionCode}</span>
               <span className="tabular font-medium">-{formatPrice(order.discount)}</span>
             </div>
           )}
