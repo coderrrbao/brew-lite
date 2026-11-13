@@ -77,6 +77,7 @@ describe("promotionsService", () => {
   });
 
   it("không liệt kê mã khuyến mãi đã hết hạn", async () => {
+    prismaMock.promotion.findMany.mockResolvedValue([]);
     const mockActivePromotions: Partial<Promotion>[] = [
       { code: "BREW10", active: true, expiresAt: new Date("2026-12-31") },
       { code: "CAFE5000", active: true, expiresAt: null },
@@ -101,13 +102,9 @@ describe("promotionsService", () => {
   it("báo không đủ điều kiện khi đơn chưa đạt giá trị tối thiểu", async () => {
     prismaMock.promotion.findUnique.mockResolvedValue(mockBrew10);
 
-    const ketQua = await service.validate("BREW10", taoDonHang(40000));
-
-    expect(ketQua).toMatchObject({
-      isValid: false,
-      discountAmount: 4000,
-      totalAmount: 36000,
-    });
+    await expect(service.validate("BREW10", taoDonHang(40000))).rejects.toThrow(
+      new BadRequestException("Đơn hàng tối thiểu 50.000đ để dùng mã này"),
+    );
   });
 
   it("xác nhận đơn đủ điều kiện và tính giảm giá phần trăm theo giới hạn tối đa", async () => {
