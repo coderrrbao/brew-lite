@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import React, { createContext, useContext, useEffect, useReducer } from 'react';
-import { getCurrentUser } from './api/auth';
+import React, { createContext, useContext, useEffect, useReducer } from "react";
+import { getCurrentUser } from "./api/auth";
 
 export interface CartItem {
   id: string;
   productId: string;
   name: string;
   imageUrl: string;
-  size: 'S' | 'M' | 'L';
+  size: "S" | "M" | "L";
   toppings: string[];
   qty: number;
   unitPrice: number;
   lineTotal: number;
 }
 
-export interface OrderItem extends Omit<CartItem, 'unitPrice'> {
+export interface OrderItem extends Omit<CartItem, "unitPrice"> {
   orderId: string;
 }
 
@@ -32,9 +32,17 @@ export interface Order {
   userId: string;
   items: OrderItem[];
   total: number;
+  promotionCode: string | undefined;
+  subtotal: number;
   discount?: number;
-  voucherCode?: string;
-  status: 'PENDING' | 'PAID' | 'PAYMENT_FAILED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
+  status:
+    | "PENDING"
+    | "PAID"
+    | "PAYMENT_FAILED"
+    | "PREPARING"
+    | "READY"
+    | "COMPLETED"
+    | "CANCELLED";
   createdAt: Date;
   payment?: Payment;
 }
@@ -53,23 +61,23 @@ interface State {
 }
 
 type Action =
-  | { type: 'ADD_TO_CART'; item: CartItem }
-  | { type: 'REMOVE_FROM_CART'; id: string }
-  | { type: 'UPDATE_QTY'; id: string; qty: number }
-  | { type: 'CLEAR_CART' }
-  | { type: 'PLACE_ORDER'; order: Order }
-  | { type: 'SET_ORDERS'; orders: Order[] }
-  | { type: 'SET_USER'; user: User | null };
+  | { type: "ADD_TO_CART"; item: CartItem }
+  | { type: "REMOVE_FROM_CART"; id: string }
+  | { type: "UPDATE_QTY"; id: string; qty: number }
+  | { type: "CLEAR_CART" }
+  | { type: "PLACE_ORDER"; order: Order }
+  | { type: "SET_ORDERS"; orders: Order[] }
+  | { type: "SET_USER"; user: User | null };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
-    case 'ADD_TO_CART': {
+    case "ADD_TO_CART": {
       const existing = state.cart.find(
         (i) =>
           i.productId === action.item.productId &&
           i.size === action.item.size &&
           JSON.stringify(i.toppings.slice().sort()) ===
-          JSON.stringify(action.item.toppings.slice().sort())
+            JSON.stringify(action.item.toppings.slice().sort()),
       );
       if (existing) {
         return {
@@ -77,37 +85,37 @@ function reducer(state: State, action: Action): State {
           cart: state.cart.map((i) =>
             i.id === existing.id
               ? {
-                ...i,
-                qty: i.qty + action.item.qty,
-                lineTotal: i.unitPrice * (i.qty + action.item.qty),
-              }
-              : i
+                  ...i,
+                  qty: i.qty + action.item.qty,
+                  lineTotal: i.unitPrice * (i.qty + action.item.qty),
+                }
+              : i,
           ),
         };
       }
       return { ...state, cart: [...state.cart, action.item] };
     }
-    case 'REMOVE_FROM_CART':
+    case "REMOVE_FROM_CART":
       return { ...state, cart: state.cart.filter((i) => i.id !== action.id) };
-    case 'UPDATE_QTY':
+    case "UPDATE_QTY":
       return {
         ...state,
         cart: state.cart.map((i) =>
           i.id === action.id
             ? { ...i, qty: action.qty, lineTotal: i.unitPrice * action.qty }
-            : i
+            : i,
         ),
       };
-    case 'CLEAR_CART':
+    case "CLEAR_CART":
       return { ...state, cart: [] };
-    case 'PLACE_ORDER':
+    case "PLACE_ORDER":
       return { ...state, orders: [action.order, ...state.orders], cart: [] };
-    case 'SET_ORDERS':
+    case "SET_ORDERS":
       return {
         ...state,
         orders: action.orders,
       };
-    case 'SET_USER':
+    case "SET_USER":
       return { ...state, user: action.user };
     default:
       return state;
@@ -139,13 +147,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         if (!active) return;
 
-        dispatch({ type: 'SET_USER', user });
+        dispatch({ type: "SET_USER", user });
 
         if (!user) {
-          dispatch({ type: 'SET_ORDERS', orders: [] });
+          dispatch({ type: "SET_ORDERS", orders: [] });
         }
       } catch (error) {
-        console.error('Không thể khôi phục đăng nhập:', error);
+        console.error("Không thể khôi phục đăng nhập:", error);
       }
     }
 
@@ -168,6 +176,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
 export function useStore() {
   const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error('useStore must be inside StoreProvider');
+  if (!ctx) throw new Error("useStore must be inside StoreProvider");
   return ctx;
 }

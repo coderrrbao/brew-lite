@@ -6,6 +6,9 @@ export function createOrder(input: {
   userId?: string;
   items: CartItem[];
   total: number;
+  promotionCode: string | undefined;
+  subtotal: number;
+  discount?: number;
   idempotencyKey: string;
 }) {
   return request<Order>("/orders", {
@@ -22,17 +25,17 @@ export async function getMyOrders(): Promise<Order[]> {
   const token = getAccessToken();
 
   if (!token) {
-    throw new Error('Bạn chưa đăng nhập.');
+    throw new Error("Bạn chưa đăng nhập.");
   }
 
   const rows = await request<
     Array<
-      Omit<Order, 'createdAt'> & {
+      Omit<Order, "createdAt"> & {
         createdAt: string;
-        payments?: Order['payment'][];
+        payments?: Order["payment"][];
       }
     >
-  >('/orders/me', {
+  >("/orders/me", {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -45,9 +48,7 @@ export async function getMyOrders(): Promise<Order[]> {
   }));
 }
 
-export async function getOrderById(
-  id: string,
-): Promise<Order | undefined> {
+export async function getOrderById(id: string): Promise<Order | undefined> {
   const orders = await getMyOrders();
 
   if (!orders) return undefined;

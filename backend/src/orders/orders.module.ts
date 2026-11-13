@@ -5,9 +5,10 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { StaffGuard } from '../auth/staff.guard';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { PromotionsModule } from '../promotions/promotions.module';
 
 @Module({
-  imports: [AuthModule, ProductsModule],
+  imports: [AuthModule, ProductsModule, PromotionsModule],
   controllers: [OrdersController],
   providers: [OrdersService, JwtAuthGuard, StaffGuard],
   exports: [OrdersService],

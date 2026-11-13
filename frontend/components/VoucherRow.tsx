@@ -1,86 +1,69 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { validatePromotion, type PromotionValidation } from '@/lib/api/promotions';
-import { useStore } from '@/lib/store';
-import { btnOutline, inputCls } from './ui';
-
-export function useVoucher() {
-  const { cartTotal } = useStore();
-  const [voucher, setVoucher] = useState<{ code: string; discountAmount: number } | null>(null);
-  const discount = voucher?.discountAmount ?? 0;
-
-  return { voucher, discount, payable: Math.max(0, cartTotal - discount), setVoucher };
-}
+import { btnOutline, inputCls } from "./ui";
 
 export default function VoucherRow({
+  code,
+  loading,
+  error,
+  appliedCode,
   disabled = false,
-  voucher,
-  onApplied,
+  onChange,
+  onApply,
+  onRemove,
 }: {
+  code: string;
+  loading: boolean;
+  error: string | null;
+  appliedCode: string | null;
   disabled?: boolean;
-  voucher: { code: string; discountAmount: number } | null;
-  onApplied: (promotion: { code: string; result: PromotionValidation }) => void;
+  onChange: (value: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
 }) {
-  const { cartTotal } = useStore();
-  const [code, setCode] = useState(voucher?.code ?? '');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  async function applyVoucher() {
-    const normalizedCode = code.trim().toUpperCase();
-    if (!normalizedCode) {
-      setError('Vui lòng nhập mã giảm giá.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    try {
-      const result = await validatePromotion(normalizedCode, cartTotal);
-      if (!result.isValid) {
-        setError('Mã giảm giá chưa đủ điều kiện áp dụng cho đơn hàng này.');
-        return;
-      }
-      onApplied({ code: normalizedCode, result });
-    } catch {
-      setError('Mã giảm giá không hợp lệ hoặc đã hết hạn.');
-    } finally {
-      setLoading(false);
-    }
+  if (appliedCode) {
+    return (
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3">
+        <p className="text-sm">
+          <span className="text-accent">✓</span> Đã áp dụng mã{" "}
+          <strong className="font-semibold">{appliedCode}</strong>
+        </p>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={disabled}
+          className="text-sm font-medium text-muted-foreground underline underline-offset-4 transition hover:text-foreground disabled:opacity-50"
+        >
+          Gỡ
+        </button>
+      </div>
+    );
   }
 
   return (
     <div>
-      <div className="flex flex-col gap-2 sm:flex-row">
+      <div className="flex gap-2">
         <input
           value={code}
-          onChange={(event) => {
-            setCode(event.target.value);
-            if (error) setError('');
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') void applyVoucher();
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onApply();
           }}
           disabled={disabled || loading}
           placeholder="Nhập mã giảm giá"
           aria-label="Mã giảm giá"
-          className={`${inputCls} uppercase`}
+          aria-invalid={!!error}
+          className={`${inputCls} min-w-0 flex-1 uppercase placeholder:normal-case`}
         />
         <button
           type="button"
-          onClick={() => void applyVoucher()}
-          disabled={disabled || loading}
+          onClick={onApply}
+          disabled={disabled || loading || !code.trim()}
           className={`${btnOutline} shrink-0`}
         >
-          {loading ? 'Đang kiểm tra…' : 'Áp dụng'}
+          {loading ? "Đang kiểm tra…" : "Áp dụng"}
         </button>
       </div>
-      {voucher && (
-        <p className="mt-2 text-sm text-success">
-          Đã áp dụng mã <strong>{voucher.code}</strong>.
-        </p>
-      )}
       {error && (
         <p role="alert" className="mt-2 text-sm font-medium text-[#8a2a20]">
           {error}

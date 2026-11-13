@@ -1,5 +1,6 @@
 import { createOrderAndPay } from "@/lib/api/checkout";
 import { confirmPayment } from "@/lib/api/payments";
+import { PromotionValidation } from "@/lib/api/promotions";
 import { OrderItem, useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
@@ -11,7 +12,11 @@ export interface CheckoutSession {
   amount?: number;
 }
 
-export function useCheckout(method: string) {
+export function useCheckout(
+  method: string,
+  appliedCode: string | undefined,
+  result?: PromotionValidation,
+) {
   const { state, dispatch, cartTotal } = useStore();
   const router = useRouter();
 
@@ -28,8 +33,11 @@ export function useCheckout(method: string) {
 
       const s = await createOrderAndPay({
         userId: state.user?.id,
+        promotionCode: appliedCode,
+        total: result?.totalAmount || 0,
+        discount: result?.discountAmount || 0,
         items: state.cart,
-        total: cartTotal,
+        subtotal: cartTotal,
         method,
         idempotencyKey: keyRef.current,
       });

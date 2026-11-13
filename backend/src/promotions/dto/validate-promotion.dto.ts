@@ -1,6 +1,7 @@
-import { IsNumber, IsString, Min } from 'class-validator';
+import { IsNumber, IsString, Min } from "class-validator";
 
 export class ValidatePromotionDto {
   @IsString() code: string;
   @IsNumber() @Min(0) subtotal: number;
+  @IsString() userId: string;
 }

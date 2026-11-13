@@ -6,7 +6,8 @@ import { createPayment } from "./payments";
 export async function createOrderAndPay(input: {
   userId?: string;
   items: CartItem[];
-  // subtotal: number;
+  promotionCode: string | undefined;
+  subtotal: number;
   discount?: number;
   voucherCode?: string;
   total: number;
@@ -18,6 +19,9 @@ export async function createOrderAndPay(input: {
       userId: input.userId,
       items: input.items,
       total: input.total,
+      promotionCode: input.promotionCode,
+      subtotal: input.subtotal,
+      discount: input.discount,
       idempotencyKey: input.idempotencyKey,
     });
 
