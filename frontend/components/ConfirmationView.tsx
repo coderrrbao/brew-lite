@@ -46,9 +46,7 @@ export default function ConfirmationPage() {
   const [order, setOrder] = useState<Order | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
 
-  const isLive = order?.status === 'PAID';
 
   const loadOrder = useCallback(async () => {
     const token = getAccessToken();
@@ -86,18 +84,31 @@ export default function ConfirmationPage() {
   }, [loadOrder]);
 
   useEffect(() => {
-    if (!order || !isLive) {
+    if (!id || !order) return;
+
+    // Ngừng gọi API khi đơn hàng đã kết thúc
+    if (
+      order.status === 'COMPLETED' ||
+      order.status === 'CANCELLED' ||
+      order.status === 'PAYMENT_FAILED'
+    ) {
       return;
     }
 
-    setTick(0);
+    const interval = setInterval(async () => {
+      try {
+        const updatedOrder = await getOrderById(id);
 
-    const timer = setInterval(() => {
-      setTick((t) => Math.min(t + 1, steps.length - 1));
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+        }
+      } catch (error) {
+        console.error('Lỗi cập nhật trạng thái:', error);
+      }
     }, 2500);
 
-    return () => clearInterval(timer);
-  }, [order?.id, isLive]);
+    return () => clearInterval(interval);
+  }, [id, order?.status]);
 
   const finalIndex = order
     ? Math.max(0, steps.findIndex((s) => s.key === order.status))
@@ -134,7 +145,7 @@ export default function ConfirmationPage() {
     );
   }
 
-  const activeStep = isLive ? tick : finalIndex;
+  const activeStep = finalIndex;
 
   return (
     <PageShell>
@@ -164,7 +175,7 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current = i === activeStep && i < steps.length - 1 && isLive;
+              const current = i === activeStep && i < steps.length - 1;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">
