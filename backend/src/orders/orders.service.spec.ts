@@ -53,14 +53,14 @@ describe("OrdersService", () => {
     ).not.toThrow();
   });
 
-  // Thanh toán thất bại → Chờ thanh toán lại
-  it("cho phép PAYMENT_FAILED → PENDING", () => {
+  // Thanh toán thất bại → retry trực tiếp lên PAID (không cần qua PENDING)
+  it("từ chối PAYMENT_FAILED → PENDING", () => {
     expect(() =>
       service.assertTransition(
         "PAYMENT_FAILED" as OrderStatus,
         "PENDING" as OrderStatus,
       ),
-    ).not.toThrow();
+    ).toThrow(ConflictException);
   });
 
   //2. HỦY ĐƠN HÀNG
@@ -81,6 +81,16 @@ describe("OrdersService", () => {
       service.assertTransition(
         "PAID" as OrderStatus,
         "CANCELLED" as OrderStatus,
+      ),
+    ).not.toThrow();
+  });
+
+  // Thanh toán thất bại → Thử lại thanh toán trực tiếp
+  it("cho phép PAYMENT_FAILED → PAID", () => {
+    expect(() =>
+      service.assertTransition(
+        "PAYMENT_FAILED" as OrderStatus,
+        "PAID" as OrderStatus,
       ),
     ).not.toThrow();
   });

@@ -21,7 +21,7 @@ const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
   PREPARING: ["READY"],
   READY: ["COMPLETED"],
   COMPLETED: [],
-  PAYMENT_FAILED: ["PENDING", "CANCELLED"],
+  PAYMENT_FAILED: ["PAID", "CANCELLED"],
   CANCELLED: [],
 };
 
@@ -85,7 +85,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       );
     }
   }
-  async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
+  async create(dto: CreateOrderDto, userId?: string): Promise<OrderWithRelations> {
     return this.prisma.$transaction(async (tx) => {
       await this.products.reserveStock(tx, dto.items);
       const subTotal = dto.items.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -97,7 +97,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
           {
             total: subTotal,
           },
-          dto.userId,
+          userId,
         );
 
         discountAmount = promo.discountAmount;
@@ -108,7 +108,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
 
       return tx.order.create({
         data: {
-          userId: dto.userId,
+          userId: userId ?? null,
           promotionCode: appliedCode ?? null,
           subTotal,
           discountAmount,

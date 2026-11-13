@@ -7,12 +7,14 @@ import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 import { UsersService } from "../users/users.service";
+import { OrdersService } from "../orders/orders.service";
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly userService: UsersService,
+    private readonly ordersService: OrdersService,
   ) {}
 
   async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
@@ -115,16 +117,19 @@ export class PaymentsService {
         };
       }
 
+      const targetStatus = dto.success ? "PAID" : "PAYMENT_FAILED";
+      this.ordersService.assertTransition(payment.order.status, targetStatus);
+
       const updated = await tx.order.updateMany({
         where: {
           id: payment.orderId,
-          status: { in: ["PENDING", "PAYMENT_FAILED"] },
+          status: payment.order.status,
         },
-        data: { status: dto.success ? "PAID" : "PAYMENT_FAILED" },
+        data: { status: targetStatus },
       });
 
       if (updated.count === 0) {
-        throw new ConflictException("Order is not payable");
+        throw new ConflictException("Order status changed concurrently");
       }
 
       const updatedPayment = await tx.payment.findUniqueOrThrow({

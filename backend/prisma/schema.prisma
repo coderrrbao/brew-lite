@@ -30,7 +30,6 @@ enum OrderStatus {
 
 enum PaymentStatus {
   PENDING
-  EXPIRED
   PAYMENT_FAILED
   PAYMENT_SUCCESS
 }

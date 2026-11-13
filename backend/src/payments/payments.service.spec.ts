@@ -6,6 +6,9 @@ import { Client } from "pg";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
 import { UsersService } from "../users/users.service";
+import { OrdersService } from "../orders/orders.service";
+import { ProductsService } from "../products/products.service";
+import { PromotionsService } from "../promotions/promotions.service";
 
 async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
   // Kết nối vào DB "postgres" (luôn tồn tại) để tạo DB test
@@ -61,7 +64,10 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     prisma = new PrismaService();
     await prisma.$connect();
     const usersService = new UsersService(prisma);
-    service = new PaymentsService(prisma, usersService);
+    const productsService = new ProductsService(prisma);
+    const promotionsService = new PromotionsService(prisma, usersService);
+    const ordersService = new OrdersService(prisma, productsService, promotionsService);
+    service = new PaymentsService(prisma, usersService, ordersService);
   }, 60_000);
 
   beforeEach(async () => {
