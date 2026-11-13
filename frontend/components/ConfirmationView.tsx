@@ -15,37 +15,38 @@ const steps: Array<{
   hint: string;
   Icon: typeof CheckIcon;
 }> = [
-  {
-    key: "PAID",
-    label: "Đã thanh toán",
-    hint: "Quầy đã nhận đơn của bạn",
-    Icon: WalletIcon,
-  },
-  {
-    key: "PREPARING",
-    label: "Đang pha chế",
-    hint: "Barista đang chuẩn bị đồ uống",
-    Icon: CupIcon,
-  },
-  {
-    key: "READY",
-    label: "Sẵn sàng lấy",
-    hint: "Báo mã đơn tại quầy để nhận ly",
-    Icon: BellIcon,
-  },
-  {
-    key: "COMPLETED",
-    label: "Hoàn thành",
-    hint: "Chúc bạn ngon miệng",
-    Icon: StarIcon,
-  },
-];
+    {
+      key: "PAID",
+      label: "Đã thanh toán",
+      hint: "Quầy đã nhận đơn của bạn",
+      Icon: WalletIcon,
+    },
+    {
+      key: "PREPARING",
+      label: "Đang pha chế",
+      hint: "Barista đang chuẩn bị đồ uống",
+      Icon: CupIcon,
+    },
+    {
+      key: "READY",
+      label: "Sẵn sàng lấy",
+      hint: "Báo mã đơn tại quầy để nhận ly",
+      Icon: BellIcon,
+    },
+    {
+      key: "COMPLETED",
+      label: "Hoàn thành",
+      hint: "Chúc bạn ngon miệng",
+      Icon: StarIcon,
+    },
+  ];
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
 
   const loadOrder = useCallback(async () => {
     const token = getAccessToken();
@@ -82,7 +83,36 @@ export default function ConfirmationPage() {
     void loadOrder();
   }, [loadOrder]);
 
-  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
+  useEffect(() => {
+    if (!id || !order) return;
+
+    // Ngừng gọi API khi đơn hàng đã kết thúc
+    if (
+      order.status === 'COMPLETED' ||
+      order.status === 'CANCELLED' ||
+      order.status === 'PAYMENT_FAILED'
+    ) {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const updatedOrder = await getOrderById(id);
+
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+        }
+      } catch (error) {
+        console.error('Lỗi cập nhật trạng thái:', error);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [id, order?.status]);
+
+  const finalIndex = order
+    ? Math.max(0, steps.findIndex((s) => s.key === order.status))
+    : 0;
 
   if (loading) {
     return (
@@ -151,11 +181,10 @@ export default function ConfirmationPage() {
                 <li key={s.key} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${
-                        done
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-secondary text-muted-foreground"
-                      } ${current ? "ring-4 ring-accent/20" : ""}`}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${done
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-secondary text-muted-foreground"
+                        } ${current ? "ring-4 ring-accent/20" : ""}`}
                     >
                       {done && i < activeStep ? (
                         <CheckIcon size={16} />
