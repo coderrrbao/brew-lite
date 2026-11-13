@@ -11,6 +11,9 @@ describe("promotionsService", () => {
       findMany: jest.Mock;
       findUnique: jest.Mock;
     };
+    order: {
+      findMany: jest.Mock;
+    };
   };
 
   const taoDonHang = (total: number): Order =>
@@ -61,6 +64,9 @@ describe("promotionsService", () => {
         findMany: jest.fn(),
         findUnique: jest.fn(),
       },
+      order: {
+        findMany: jest.fn().mockResolvedValue([]),
+      },
     };
 
     const userService = new UsersService(
@@ -85,7 +91,7 @@ describe("promotionsService", () => {
 
     prismaMock.promotion.findMany.mockResolvedValue(mockActivePromotions);
 
-    const result = await service.findAll();
+    const result = await service.findAll("user-1");
 
     expect(result.some(({ code }) => code === "HETHAN")).toBe(false);
     expect(prismaMock.promotion.findMany).toHaveBeenCalledTimes(1);
