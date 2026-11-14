@@ -14,34 +14,64 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # Khai báo PostgreSQL service cho môi trường CI
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: BrewLite_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 12.9.1
+          version: 9.15.4
           run_install: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
+      # Cài đặt dependencies từ Root để nhận pnpm-lock.yaml
       - name: Install dependencies
-        working-directory: backend
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
         working-directory: backend
         run: pnpm db:generate
 
+      - name: Push DB Schema
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
+        run: npx prisma db push
+
+      - name: Seed Database
+        working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
+        run: pnpm db:seed
+
       - name: Lint
         working-directory: backend
         run: pnpm lint
 
-      - name: Unit tests
+      - name: Unit & Integration tests
         working-directory: backend
+        env:
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
         run: pnpm test
 
       - name: Build
@@ -58,20 +88,20 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 12.9.1
+          version: 9.15.4
           run_install: false
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          cache-dependency-path: pnpm-lock.yaml
 
+      # Cài đặt dependencies từ Root để nhận pnpm-lock.yaml
       - name: Install dependencies
-        working-directory: frontend
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
+      - name: Type check & Lint
         working-directory: frontend
         run: pnpm lint
 

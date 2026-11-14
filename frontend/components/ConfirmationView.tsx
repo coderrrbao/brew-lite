@@ -1,40 +1,143 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useStore, type Order } from '@/lib/store';
+import { getOrderById } from '@/lib/api/orders';
+import { type Order } from '@/lib/store';
 import { formatPrice } from '@/lib/data';
-import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls } from './ui';
+import { getAccessToken } from '@/lib/api/auth';
+import { PageShell, Eyebrow, CheckIcon, BellIcon, CupIcon, WalletIcon, StarIcon, btnPrimary, btnOutline, cardCls, } from './ui';
 
-const steps: Array<{ key: Order['status']; label: string; hint: string; Icon: typeof CheckIcon }> = [
-  { key: 'PAID', label: 'Đã thanh toán', hint: 'Quầy đã nhận đơn của bạn', Icon: WalletIcon },
-  { key: 'PREPARING', label: 'Đang pha chế', hint: 'Barista đang chuẩn bị đồ uống', Icon: CupIcon },
-  { key: 'READY', label: 'Sẵn sàng lấy', hint: 'Báo mã đơn tại quầy để nhận ly', Icon: BellIcon },
-  { key: 'COMPLETED', label: 'Hoàn thành', hint: 'Chúc bạn ngon miệng', Icon: StarIcon },
-];
+const steps: Array<{
+  key: Order["status"];
+  label: string;
+  hint: string;
+  Icon: typeof CheckIcon;
+}> = [
+    {
+      key: "PAID",
+      label: "Đã thanh toán",
+      hint: "Quầy đã nhận đơn của bạn",
+      Icon: WalletIcon,
+    },
+    {
+      key: "PREPARING",
+      label: "Đang pha chế",
+      hint: "Barista đang chuẩn bị đồ uống",
+      Icon: CupIcon,
+    },
+    {
+      key: "READY",
+      label: "Sẵn sàng lấy",
+      hint: "Báo mã đơn tại quầy để nhận ly",
+      Icon: BellIcon,
+    },
+    {
+      key: "COMPLETED",
+      label: "Hoàn thành",
+      hint: "Chúc bạn ngon miệng",
+      Icon: StarIcon,
+    },
+  ];
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
-  const { state } = useStore();
+  const [order, setOrder] = useState<Order | undefined>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const order: Order | undefined = state.orders.find((o) => o.id === id);
 
-  const finalIndex = order ? Math.max(0, steps.findIndex((s) => s.key === order.status)) : 0;
-  const isLive = order?.status === 'PAID';
-  const [tick, setTick] = useState(0);
+  const loadOrder = useCallback(async () => {
+    const token = getAccessToken();
+
+    if (!token) {
+      console.error('Không tìm thấy token');
+      setError('Bạn chưa đăng nhập hoặc token đã hết hạn');
+      setLoading(false);
+      return;
+    }
+
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await getOrderById(id);
+      if (!result) {
+        console.error('Không tìm thấy đơn hàng với ID:', id);
+      }
+      setOrder(result);
+    } catch (err) {
+      console.error('Lỗi API lấy đơn hàng:', err);
+      setError('Không thể tải thông tin đơn hàng');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    if (!order || !isLive) return;
-    const timer = setInterval(() => setTick((t) => Math.min(t + 1, steps.length - 1)), 2500);
-    return () => clearInterval(timer);
-  }, [order, isLive]);
+    void loadOrder();
+  }, [loadOrder]);
+
+  useEffect(() => {
+    if (!id || !order) return;
+
+    // Ngừng gọi API khi đơn hàng đã kết thúc
+    if (
+      order.status === 'COMPLETED' ||
+      order.status === 'CANCELLED' ||
+      order.status === 'PAYMENT_FAILED'
+    ) {
+      return;
+    }
+
+    const interval = setInterval(async () => {
+      try {
+        const updatedOrder = await getOrderById(id);
+
+        if (updatedOrder) {
+          setOrder(updatedOrder);
+        }
+      } catch (error) {
+        console.error('Lỗi cập nhật trạng thái:', error);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [id, order?.status]);
+
+  const finalIndex = order
+    ? Math.max(0, steps.findIndex((s) => s.key === order.status))
+    : 0;
+
+  if (loading) {
+    return (
+      <PageShell className="text-center">
+        <h1>Đang tải đơn hàng...</h1>
+      </PageShell>
+    );
+  }
+
+  if (error) {
+    return (
+      <PageShell className="text-center">
+        <p role="alert" className="text-sm font-medium text-[#8a2a20]">{error}</p>
+        <button onClick={() => void loadOrder()} className={`${btnOutline} mt-6`}>Thử lại</button>
+      </PageShell>
+    );
+  }
 
   if (!order) {
     return (
       <PageShell className="text-center">
         <h1 className="text-3xl font-semibold">Không tìm thấy đơn hàng</h1>
-        <p className="mt-2 text-muted-foreground">Mã đơn có thể đã sai hoặc đã hết hạn.</p>
+        <p className="mt-2 text-muted-foreground">
+          Mã đơn có thể đã sai hoặc đã hết hạn.
+        </p>
         <Link href="/" className={`${btnPrimary} mt-6`}>
           Về trang chủ
         </Link>
@@ -42,7 +145,7 @@ export default function ConfirmationPage() {
     );
   }
 
-  const activeStep = isLive ? tick : finalIndex;
+  const activeStep = finalIndex;
 
   return (
     <PageShell>
@@ -51,14 +154,18 @@ export default function ConfirmationPage() {
           <CheckIcon size={30} />
         </span>
         <h1 className="mt-5 text-4xl font-semibold">Đặt hàng thành công</h1>
-        <p className="mt-2 text-muted-foreground">Cảm ơn bạn đã chọn BrewLite.</p>
+        <p className="mt-2 text-muted-foreground">
+          Cảm ơn bạn đã chọn BrewLite.
+        </p>
       </div>
 
       <div className={`${cardCls} mt-8 p-6 text-center`}>
         <Eyebrow>Mã đơn hàng</Eyebrow>
-        <p className="tabular mt-2 font-display text-3xl font-semibold text-accent">{order.id}</p>
+        <p className="tabular mt-2 font-display text-3xl font-semibold text-accent">
+          {order.id}
+        </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {order.createdAt.toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
+          {new Date(order.createdAt).toLocaleString('vi-VN', { dateStyle: 'full', timeStyle: 'short' })}
         </p>
       </div>
 
@@ -68,23 +175,38 @@ export default function ConfirmationPage() {
           <ol className="mt-5">
             {steps.map((s, i) => {
               const done = i <= activeStep;
-              const current = i === activeStep && i < steps.length - 1 && isLive;
+              const current = i === activeStep && i < steps.length - 1;
               const last = i === steps.length - 1;
               return (
                 <li key={s.key} className="flex gap-4">
                   <div className="flex flex-col items-center">
                     <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${
-                        done ? 'bg-accent text-accent-foreground' : 'bg-secondary text-muted-foreground'
-                      } ${current ? 'ring-4 ring-accent/20' : ''}`}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors duration-500 ${done
+                        ? "bg-accent text-accent-foreground"
+                        : "bg-secondary text-muted-foreground"
+                        } ${current ? "ring-4 ring-accent/20" : ""}`}
                     >
-                      {done && i < activeStep ? <CheckIcon size={16} /> : <s.Icon size={16} />}
+                      {done && i < activeStep ? (
+                        <CheckIcon size={16} />
+                      ) : (
+                        <s.Icon size={16} />
+                      )}
                     </span>
-                    {!last && <span className={`my-1 w-0.5 flex-1 min-h-6 ${i < activeStep ? 'bg-accent' : 'bg-border'}`} />}
+                    {!last && (
+                      <span
+                        className={`my-1 w-0.5 flex-1 min-h-6 ${i < activeStep ? "bg-accent" : "bg-border"}`}
+                      />
+                    )}
                   </div>
                   <div className="pb-5">
-                    <p className={`font-semibold ${done ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</p>
-                    {done && <p className="text-sm text-muted-foreground">{s.hint}</p>}
+                    <p
+                      className={`font-semibold ${done ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {s.label}
+                    </p>
+                    {done && (
+                      <p className="text-sm text-muted-foreground">{s.hint}</p>
+                    )}
                   </div>
                 </li>
               );
@@ -103,18 +225,32 @@ export default function ConfirmationPage() {
                   className="h-12 w-12 rounded-lg bg-secondary object-cover"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-medium">{item.name}</p>
+                  <p className="truncate text-[15px] font-medium">
+                    {item.name}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Size {item.size} × {item.qty}
                   </p>
                 </div>
-                <span className="tabular text-[15px] font-medium">{formatPrice(item.lineTotal)}</span>
+                <span className="tabular text-[15px] font-medium">
+                  {formatPrice(item.lineTotal)}
+                </span>
               </li>
             ))}
           </ul>
+          {!!order.discount && (
+            <div className="flex justify-between border-t border-border pt-3 text-sm text-success">
+              <span>Mã {order.voucherCode}</span>
+              <span className="tabular font-medium">-{formatPrice(order.discount)}</span>
+            </div>
+          )}
           <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
-            <span className="text-sm text-muted-foreground">{order.payment?.method}</span>
-            <span className="tabular font-display text-2xl font-semibold">{formatPrice(order.total)}</span>
+            <span className="text-sm text-muted-foreground">
+              {order.payment?.method}
+            </span>
+            <span className="tabular font-display text-2xl font-semibold">
+              {formatPrice(order.total)}
+            </span>
           </div>
         </section>
       </div>

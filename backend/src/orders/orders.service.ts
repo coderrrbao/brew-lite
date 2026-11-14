@@ -2,38 +2,79 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import type {
-  Order,
-  OrderItem,
-  OrderStatus,
-  Payment,
-} from '../generated/prisma/client';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { PrismaService } from '../prisma/prisma.service';
-import { ProductsService } from '../products/products.service';
+  OnModuleInit,
+  OnModuleDestroy,
+} from "@nestjs/common";
+import type { Order, OrderItem, OrderStatus } from "../generated/prisma/client";
+import { CreateOrderDto } from "./dto/create-order.dto";
+import { PrismaService } from "../prisma/prisma.service";
+import { ProductsService } from "../products/products.service";
 
 export type OrderWithRelations = Order & {
   items: OrderItem[];
-  payments: Payment[];
 };
 
 const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
-  PENDING: ['PAID', 'PAYMENT_FAILED', 'CANCELLED'],
-  PAID: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY'],
-  READY: ['COMPLETED'],
+  PENDING: ["PAID", "PAYMENT_FAILED", "CANCELLED"],
+  PAID: ["PREPARING", "CANCELLED"],
+  PREPARING: ["READY"],
+  READY: ["COMPLETED"],
   COMPLETED: [],
-  PAYMENT_FAILED: ['PENDING', 'CANCELLED'],
+  PAYMENT_FAILED: ["PENDING", "CANCELLED"],
   CANCELLED: [],
 };
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit, OnModuleDestroy {
+  private readonly processingOrders = new Set<string>();
+  private scanTimer?: ReturnType<typeof setInterval>;
+  private scanning = false;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
   ) {}
+
+  onModuleInit() {
+    this.scanTimer = setInterval(() => {
+      void this.scanPaidOrders();
+    }, 2500);
+  }
+
+  onModuleDestroy() {
+    if (this.scanTimer) {
+      clearInterval(this.scanTimer);
+    }
+  }
+
+  private async scanPaidOrders(): Promise<void> {
+    if (this.scanning) return;
+
+    this.scanning = true;
+
+    try {
+      const orders = await this.prisma.order.findMany({
+        where: { status: "PAID" },
+        select: { id: true },
+      });
+
+      for (const order of orders) {
+        if (this.processingOrders.has(order.id)) continue;
+
+        this.processingOrders.add(order.id);
+
+        void this.autoProgressOrder(order.id)
+          .catch(() => {})
+          .finally(() => {
+            this.processingOrders.delete(order.id);
+          });
+      }
+    } catch {
+      // Bỏ qua lỗi quét đơn hàng
+    } finally {
+      this.scanning = false;
+    }
+  }
 
   assertTransition(from: OrderStatus, to: OrderStatus): void {
     if (!allowedOrderTransitions[from].includes(to)) {
@@ -44,24 +85,35 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto): Promise<OrderWithRelations> {
-    // TODO(repo1): apply a valid promotion and award loyalty points after PAID.
     return this.prisma.$transaction(async (transaction) => {
       await this.products.reserveStock(transaction, dto.items);
       return transaction.order.create({
         data: {
           userId: dto.userId,
           total: dto.total,
-          items: { create: dto.items },
+          items: {
+            create: dto.items.map((item) => ({
+              productId: item.productId,
+              name: item.name,
+              imageUrl: item.imageUrl,
+              size: item.size,
+              toppings: item.toppings,
+              qty: item.qty,
+              unitPrice: item.unitPrice,
+              lineTotal: item.lineTotal,
+            })),
+          },
         },
-        include: { items: true, payments: true },
+        include: { items: true },
       });
     });
   }
 
-  async findMine(): Promise<OrderWithRelations[]> {
+  async findMine(userId: string): Promise<OrderWithRelations[]> {
     return this.prisma.order.findMany({
-      include: { items: true, payments: true },
-      orderBy: { createdAt: 'desc' },
+      where: { userId },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -69,8 +121,13 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
   ): Promise<OrderWithRelations> {
-    const order = await this.prisma.order.findUnique({ where: { id } });
-    if (!order) throw new NotFoundException('Order not found');
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
 
     this.assertTransition(order.status, status);
 
@@ -79,13 +136,53 @@ export class OrdersService {
       data: { status },
     });
     if (updated.count === 0) {
-      throw new ConflictException('Order status changed concurrently');
+      throw new ConflictException("Order status changed concurrently");
     }
 
     return this.prisma.order.findUniqueOrThrow({
       where: { id },
-      include: { items: true, payments: true },
+      include: { items: true },
     });
   }
 
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async autoProgressOrder(orderId: string): Promise<void> {
+    const statuses = [
+      "PREPARING",
+      "READY",
+      "COMPLETED",
+    ] as const;
+
+    for (const status of statuses) {
+      await this.sleep(2500);
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+      });
+
+      if (!order) return;
+
+      const expectedStatus =
+        status === "PREPARING"
+          ? "PAID"
+          : status === "READY"
+            ? "PREPARING"
+            : "READY";
+
+      if (order.status !== expectedStatus) return;
+
+      const result = await this.prisma.order.updateMany({
+        where: {
+          id: orderId,
+          status: expectedStatus,
+        },
+        data: { status },
+      });
+
+      if (result.count === 0) return;
+    }
+  }
 }

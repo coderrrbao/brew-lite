@@ -2,69 +2,139 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
-import { CreatePaymentDto } from './dto/create-payment.dto';
+} from "@nestjs/common";
+import { Prisma } from "../generated/prisma/client";
+import { PrismaService } from "../prisma/prisma.service";
+import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 
 @Injectable()
 export class PaymentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Idempotent by idempotencyKey. TODO: call real payment gateway (MoMo / ZaloPay / card)
-  async pay(dto: CreatePaymentDto) {
-    try {
-      return await this.prisma.$transaction(async (transaction) => {
-        const existingPayment = await transaction.payment.findUnique({
-          where: { idempotencyKey: dto.idempotencyKey },
-        });
-        if (existingPayment) {
-          throw new ConflictException('Payment key has already been processed');
-        }
-
-        const order = await transaction.order.findUnique({
-          where: { id: dto.orderId },
-          select: { id: true, total: true },
-        });
-        if (!order) throw new NotFoundException('Order not found');
-
-        const status = dto.success ? 'PAID' : 'PAYMENT_FAILED';
-        const updated = await transaction.order.updateMany({
-          where: { id: order.id, status: 'PENDING' },
-          data: { status },
-        });
-        if (updated.count === 0) {
-          throw new ConflictException('Order is not pending');
-        }
-
-        const payment = dto.success
-          ? await transaction.payment.create({
-              data: {
-                orderId: order.id,
-                idempotencyKey: dto.idempotencyKey,
-                amount: order.total,
-                method: 'mock',
-              },
-            })
-          : null;
-
-        const updatedOrder = await transaction.order.findUniqueOrThrow({
-          where: { id: order.id },
-          include: { items: true, payments: true },
-        });
-
-        // TODO(repo1): apply the order promotion and award loyalty points
-        // in this transaction after a successful PAID transition.
-        return { order: updatedOrder, payment };
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('Payment key has already been processed');
-      }
-      throw error;
+  async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: dto.orderId },
+    });
+    if (!order) {
+      throw new NotFoundException("Đơn hàng không tồn tại");
     }
+
+    let payment = await this.prisma.payment.findUnique({
+      where: { idempotencyKey: dto.idempotencyKey },
+    });
+
+    if (!payment) {
+      if (!["PENDING", "PAYMENT_FAILED"].includes(order.status)) {
+        throw new ConflictException("Order is not payable");
+      }
+
+      try {
+        payment = await this.prisma.payment.create({
+          data: {
+            orderId: order.id,
+            idempotencyKey: dto.idempotencyKey,
+            amount: order.total,
+            method: dto.method,
+            status: "PENDING",
+          },
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          payment = await this.prisma.payment.findUniqueOrThrow({
+            where: { idempotencyKey: dto.idempotencyKey },
+          });
+        } else {
+          throw error;
+        }
+      }
+    }
+
+    if (payment.orderId !== dto.orderId) {
+      throw new ConflictException("Idempotency key đã dùng cho đơn hàng khác");
+    }
+
+    return {
+      message:
+        payment.status === "PAYMENT_SUCCESS"
+          ? "Đơn hàng đã thanh toán"
+          : payment.status === "PAYMENT_FAILED"
+            ? "Đơn thanh toán thất bại"
+            : `QR thanh toán cho đơn hàng ${payment.orderId}`,
+      payment,
+      orderId: payment.orderId,
+    };
+  }
+
+  async pay(dto: PayOrderDto & { idempotencyKey: string }) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findUnique({
+        where: { idempotencyKey: dto.idempotencyKey },
+        include: { order: { include: { items: true } } },
+      });
+      if (!payment) {
+        throw new NotFoundException("Payment key not found");
+      }
+
+      if (payment.status !== "PENDING") {
+        return {
+          message:
+            payment.status === "PAYMENT_SUCCESS"
+              ? "Đơn hàng đã thanh toán"
+              : "Đơn thanh toán thất bại",
+          order: payment.order,
+          payment,
+        };
+      }
+
+      const claimed = await tx.payment.updateMany({
+        where: { id: payment.id, status: "PENDING" },
+        data: { status: dto.success ? "PAYMENT_SUCCESS" : "PAYMENT_FAILED" },
+      });
+
+      if (claimed.count === 0) {
+        const current = await tx.payment.findUniqueOrThrow({
+          where: { id: payment.id },
+          include: { order: { include: { items: true } } },
+        });
+        return {
+          message:
+            current.status === "PAYMENT_SUCCESS"
+              ? "Đơn hàng đã thanh toán"
+              : current.status === "PAYMENT_FAILED"
+                ? "Đơn thanh toán thất bại"
+                : "Đơn hàng đang trong quá trình thanh toán",
+          order: current.order,
+          payment: current,
+        };
+      }
+
+      const updated = await tx.order.updateMany({
+        where: {
+          id: payment.orderId,
+          status: { in: ["PENDING", "PAYMENT_FAILED"] },
+        },
+        data: { status: dto.success ? "PAID" : "PAYMENT_FAILED" },
+      });
+
+      if (updated.count === 0) {
+        throw new ConflictException("Order is not payable");
+      }
+
+      const updatedPayment = await tx.payment.findUniqueOrThrow({
+        where: { id: payment.id },
+        include: { order: { include: { items: true } } },
+      });
+
+      return {
+        message: dto.success
+          ? `Thanh toán đơn hàng ${payment.orderId} thành công`
+          : `Thanh toán đơn hàng ${payment.orderId} thất bại`,
+        order: updatedPayment.order,
+        payment: updatedPayment,
+      };
+    });
   }
 }

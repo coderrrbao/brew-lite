@@ -24,6 +24,9 @@ export class PromotionsService {
   ): Promise<{ isValid: boolean, discountAmount: number, totalAmount: number }> {
     const promotion = await this.prisma.promotion.findUnique({ where: { code: promotionCode } });
     if (!promotion) throw new NotFoundException("Không tìm thấy mã giảm giá");
+    if (!promotion.active) {
+      throw new BadRequestException("Mã giảm giá không còn hiệu lực");
+    }
     if (promotion.expiresAt != null && promotion.expiresAt < new Date()) {
       throw new BadRequestException("Mã giảm giá hết hạn");
     }
@@ -57,7 +60,7 @@ export class PromotionsService {
     }
 
     let isValid = false;
-    if (promotion.minimumOrderAmount != null && order.total >= promotion.minimumOrderAmount) {
+    if (promotion.minimumOrderAmount == null || order.total >= promotion.minimumOrderAmount) {
       isValid = true;
     }
 
