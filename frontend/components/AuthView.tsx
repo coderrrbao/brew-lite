@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
 import { getProductImageUrl } from '@/lib/data';
-import { authenticate, clearAuthSession } from '@/lib/api/auth';
+import { authenticate, logout } from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
 
 export default function AuthPage() {
@@ -35,8 +35,8 @@ export default function AuthPage() {
             Đơn hàng của tôi
           </Link>
           <button
-            onClick={() => {
-              clearAuthSession();
+            onClick={async () => {
+              await logout();
               dispatch({ type: 'SET_USER', user: null });
             }}
             className={`${btnOutline} flex-1`}
@@ -87,7 +87,7 @@ export default function AuthPage() {
       </div>
 
       <div className="mx-auto w-full max-w-md">
-        <h1 className="text-4xl font-semibold">{isLogin ? 'Chào mừng trở lại' : 'Tạo tài khoản'}</h1>
+        <h1 className="text-4xl font-semibold">{isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}</h1>
         <p className="mt-2 text-muted-foreground">
           {isLogin ? 'Đăng nhập để tích điểm và xem lịch sử đơn hàng.' : 'Tham gia BrewLite để nhận ưu đãi dành cho thành viên.'}
         </p>
