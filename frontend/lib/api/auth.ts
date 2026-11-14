@@ -14,6 +14,10 @@ export const SESSION_EXPIRED_EVENT = 'brewlite:session-expired';
 const ACCESS_TOKEN_KEY = 'brewlite_access_token';
 const REFRESH_TOKEN_KEY = 'brewlite_refresh_token';
 
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
 function saveTokens(tokens: TokenPair) {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
