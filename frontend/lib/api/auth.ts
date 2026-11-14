@@ -19,10 +19,6 @@ function saveTokens(tokens: TokenPair) {
   localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
 }
 
-export function getAccessToken() {
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
 export async function authenticate(
   mode: 'login' | 'register',
   body: { email: string; password: string; name?: string },
@@ -35,17 +31,11 @@ export async function authenticate(
   return result;
 }
 
-<<<<<<< HEAD
 let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) return null;
-=======
-export async function getCurrentUser(): Promise<User | null> {
-  const accessToken = getAccessToken();
-  if (!accessToken) return null;
->>>>>>> 2dab2426794bd491355e75dc0c2b80c02aff0eb3
 
   try {
     const tokens = await request<TokenPair>('/auth/refresh', {

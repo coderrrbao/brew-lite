@@ -15,15 +15,11 @@ import { RefreshTokensService } from './refresh-tokens.service';
     JwtModule.registerAsync({
       useFactory: () => {
         const secret = process.env.JWT_SECRET;
-        if (!secret) throw new Error("JWT_SECRET chưa được cấu hình");
+        if (!secret) throw new Error('JWT_SECRET chưa được cấu hình');
 
         return {
           secret,
-<<<<<<< HEAD
           signOptions: { expiresIn: '30m' },
-=======
-          signOptions: { expiresIn: "1h" },
->>>>>>> 2dab2426794bd491355e75dc0c2b80c02aff0eb3
         };
       },
     }),
