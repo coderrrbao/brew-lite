@@ -1,28 +1,31 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { PrismaModule } from '../prisma/prisma.module';
+import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UsersController } from '../users/users.controller';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RefreshTokensService } from './refresh-tokens.service';
 
 @Module({
   imports: [
-    PrismaModule,
+    UsersModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     JwtModule.registerAsync({
       useFactory: () => {
         const secret = process.env.JWT_SECRET;
-        if (!secret) throw new Error("JWT_SECRET chưa được cấu hình");
+        if (!secret) throw new Error('JWT_SECRET chưa được cấu hình');
 
         return {
           secret,
-          signOptions: { expiresIn: "1h" },
+          signOptions: { expiresIn: '30m' },
         };
       },
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
+  controllers: [AuthController, UsersController],
+  providers: [AuthService, JwtAuthGuard, RefreshTokensService],
   exports: [JwtModule],
 })
 export class AuthModule {}

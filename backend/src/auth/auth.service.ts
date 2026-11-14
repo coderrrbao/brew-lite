@@ -3,26 +3,25 @@ import {
 } from '@nestjs/common';
 import { compare, hash, hashSync } from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '../prisma/prisma.service';
-import type { User } from '../generated/prisma/client';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { randomUUID } from 'node:crypto';
+import { UsersService } from '../users/users.service';
+import type { UserDto } from '../users/dto/user.dto';
+import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import { RefreshTokensService } from './refresh-tokens.service';
 
-//
 const BCRYPT_ROUNDS = 12;
 const DUMMY_HASH = hashSync('dummy-password', BCRYPT_ROUNDS);
+const REFRESH_TTL_SECONDS = 24 * 60 * 7;
 
-type PublicUser = Omit<User, 'passwordHash'>;
-export type AuthResponse = { accessToken: string; user: PublicUser };
-
-const PUBLIC_USER_SELECT = {
-  id: true,
-  name: true,
-  email: true,
-  role: true,
-  loyaltyPoints: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
+type TokenIdentity = Pick<UserDto, 'id' | 'email' | 'role'>;
+export type TokenPair = { accessToken: string; refreshToken: string };
+export type AuthResponse = TokenPair & { user: UserDto };
+type RefreshPayload = {
+  sub: string;
+  jti: string;
+  email: string;
+  role: UserDto['role'];
+};
 
 function isUniqueViolation(error: unknown): boolean {
   return (
@@ -33,19 +32,27 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
+function getRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET;
+  if (!secret) throw new Error('JWT_REFRESH_SECRET chưa được cấu hình');
+  return secret;
+}
+
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly users: UsersService,
     private readonly jwt: JwtService,
+    private readonly refreshTokens: RefreshTokensService,
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const passwordHash = await hash(dto.password, BCRYPT_ROUNDS);
     try {
-      const user = await this.prisma.user.create({
-        data: { email: dto.email, name: dto.name, passwordHash },
-        select: PUBLIC_USER_SELECT,
+      const user = await this.users.create({
+        email: dto.email,
+        name: dto.name,
+        passwordHash,
       });
       return this.createAuthResponse(user);
     } catch (error) {
@@ -57,10 +64,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-      select: { ...PUBLIC_USER_SELECT, passwordHash: true },
-    });
+    const user = await this.users.findByEmail(dto.email);
 
     const isValid = await compare(
       dto.password,
@@ -74,21 +78,75 @@ export class AuthService {
     return this.createAuthResponse(publicUser);
   }
 
-  async me(userId: string): Promise<PublicUser> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: PUBLIC_USER_SELECT,
+  async refresh(dto: RefreshDto): Promise<TokenPair> {
+    const payload = await this.verifyRefreshToken(dto.refreshToken);
+
+    const ok = await this.refreshTokens.consume(payload.jti, dto.refreshToken);
+    if (!ok) {
+      await this.refreshTokens.revokeAllForUser(payload.sub);
+      throw new UnauthorizedException('Refresh token không hợp lệ');
+    }
+
+    return this.issueTokens({
+      id: payload.sub,
+      email: payload.email,
+      role: payload.role,
     });
-    if (!user) throw new UnauthorizedException('Tài khoản không tồn tại');
-    return user;
   }
 
-  private async createAuthResponse(user: PublicUser): Promise<AuthResponse> {
+  async logout(dto: RefreshDto): Promise<void> {
+    try {
+      const payload = await this.verifyRefreshToken(dto.refreshToken);
+      await this.refreshTokens.consume(payload.jti, dto.refreshToken);
+    } catch {
+      throw new UnauthorizedException('Refresh token không hợp lệ');
+    }
+  }
+
+  private async verifyRefreshToken(token: string): Promise<RefreshPayload> {
+    try {
+      const payload = await this.jwt.verifyAsync<RefreshPayload>(token, {
+        secret: getRefreshSecret(),
+      });
+      if (!payload.sub || !payload.jti || !payload.email || !payload.role) {
+        throw new Error('payload thiếu field');
+      }
+      return payload;
+    } catch {
+      throw new UnauthorizedException(
+        'Refresh token không hợp lệ hoặc đã hết hạn',
+      );
+    }
+  }
+
+  private async createAuthResponse(user: UserDto): Promise<AuthResponse> {
+    const tokens = await this.issueTokens(user);
+    return { ...tokens, user };
+  }
+
+  private async issueTokens(identity: TokenIdentity): Promise<TokenPair> {
     const accessToken = await this.jwt.signAsync({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
+      sub: identity.id,
+      email: identity.email,
+      role: identity.role,
     });
-    return { accessToken, user };
+
+    const tokenId = randomUUID();
+    const refreshToken = await this.jwt.signAsync(
+      { sub: identity.id, email: identity.email, role: identity.role },
+      {
+        secret: getRefreshSecret(),
+        expiresIn: REFRESH_TTL_SECONDS,
+        jwtid: tokenId,
+      },
+    );
+    await this.refreshTokens.store({
+      id: tokenId,
+      userId: identity.id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + REFRESH_TTL_SECONDS * 1000),
+    });
+
+    return { accessToken, refreshToken };
   }
 }
