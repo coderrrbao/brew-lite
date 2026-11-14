@@ -33,3 +33,9 @@ export class RegisterDto {
   @MaxLength(100, { message: 'Tên tối đa 100 ký tự' })
   name?: string;
 }
+
+export class RefreshDto {
+  @IsString()
+  @IsNotEmpty()
+  refreshToken!: string;
+}

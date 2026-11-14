@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { PrismaModule } from '../prisma/prisma.module';
+import { UsersModule } from '../users/users.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UsersController } from '../users/users.controller';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { RefreshTokensService } from './refresh-tokens.service';
 
 @Module({
   imports: [
-    PrismaModule,
+    UsersModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 20 }]),
     JwtModule.registerAsync({
       useFactory: () => {
@@ -16,13 +19,13 @@ import { AuthService } from './auth.service';
 
         return {
           secret,
-          signOptions: { expiresIn: '1h' },
+          signOptions: { expiresIn: '30m' },
         };
       },
     }),
   ],
-  controllers: [AuthController],
-  providers: [AuthService],
+  controllers: [AuthController, UsersController],
+  providers: [AuthService, JwtAuthGuard, RefreshTokensService],
   exports: [JwtModule],
 })
 export class AuthModule {}
