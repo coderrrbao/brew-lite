@@ -20,6 +20,9 @@ import {
   cardCls,
 } from "./ui";
 import { useCheckout } from "@/hooks/useCheckout";
+import VoucherRow from "./VoucherRow";
+import { useVoucher } from "@/hooks/useVoucher";
+import VoucherList from "./VoucherList";
 
 const paymentMethods = [
   {
@@ -56,6 +59,18 @@ export default function CheckoutPage() {
     paymentMethods.find((p) => p.id === method)?.label ?? method;
 
   const {
+    code,
+    loading: voucherLoading,
+    error: voucherError,
+    result,
+    appliedCode,
+    promotions,
+    setCode,
+    checkCode,
+    reset: resetVoucher,
+  } = useVoucher();
+
+  const {
     cart,
     user,
     cartTotal,
@@ -64,14 +79,21 @@ export default function CheckoutPage() {
     error,
     placeOrder,
     finishPayment,
-  } = useCheckout(method);
+  } = useCheckout(method, appliedCode ?? undefined, result);
 
   useEffect(() => {
     if (cart.length === 0 && !loading) router.replace("/");
   }, [cart.length, loading, router]);
+
+  useEffect(() => {
+    resetVoucher();
+  }, [cartTotal, resetVoucher]);
+
   if (cart.length === 0 && !loading) return null;
 
-  const points = Math.floor(session?.amount || 0 / 1000);
+  const discount = result?.discountAmount ?? 0;
+  const finalTotal = result?.totalAmount ?? cartTotal;
+  const points = Math.floor((session?.amount ?? finalTotal) / 1000);
 
   const payButton = (
     <button
@@ -84,7 +106,7 @@ export default function CheckoutPage() {
           <SpinnerIcon size={18} /> Đang xử lý thanh toán…
         </>
       ) : (
-        <>Xác nhận thanh toán · {formatPrice(cartTotal)}</>
+        <>Xác nhận thanh toán · {formatPrice(finalTotal)}</>
       )}
     </button>
   );
@@ -250,12 +272,49 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-2 flex items-baseline justify-between border-t border-border pt-4">
+
+            <div className="mt-4">
+              <VoucherRow
+                code={code}
+                loading={voucherLoading}
+                error={voucherError}
+                appliedCode={appliedCode}
+                disabled={loading || !!session}
+                onChange={(v) => setCode(v.toUpperCase())}
+                onApply={() => void checkCode(cartTotal)}
+                onRemove={resetVoucher}
+              />
+              <div className="mt-3">
+                <VoucherList
+                  promotions={promotions}
+                  cartTotal={cartTotal}
+                  appliedCode={appliedCode}
+                  disabled={voucherLoading || loading || !!session}
+                  onPick={(c) => void checkCode(cartTotal, c)}
+                />
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Tạm tính</span>
+                <span className="tabular">{formatPrice(cartTotal)}</span>
+              </div>
+              {appliedCode && (
+                <div className="flex justify-between text-accent">
+                  <span>Mã {appliedCode}</span>
+                  <span className="tabular">−{formatPrice(discount)}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-baseline justify-between border-t border-border pt-4">
               <span className="font-semibold">Tổng cộng</span>
               <span className="tabular font-display text-2xl font-semibold">
-                {formatPrice(cartTotal)}
+                {formatPrice(finalTotal)}
               </span>
             </div>
+
             <div className="mt-6 hidden md:block">{payButton}</div>
           </div>
         </aside>

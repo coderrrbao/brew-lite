@@ -11,7 +11,7 @@ export class UsersController {
 
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
-    return this.users.getProfile(user.sub);
+    return this.users.findById(user.sub);
   }
 
   @Get('me/points')

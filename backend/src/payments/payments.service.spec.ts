@@ -5,6 +5,10 @@ import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Client } from "pg";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
+import { UsersService } from "../users/users.service";
+import { OrdersService } from "../orders/orders.service";
+import { ProductsService } from "../products/products.service";
+import { PromotionsService } from "../promotions/promotions.service";
 
 async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
   // Kết nối vào DB "postgres" (luôn tồn tại) để tạo DB test
@@ -59,7 +63,11 @@ describe("PaymentsService (PostgreSQL integration)", () => {
 
     prisma = new PrismaService();
     await prisma.$connect();
-    service = new PaymentsService(prisma);
+    const usersService = new UsersService(prisma);
+    const productsService = new ProductsService(prisma);
+    const promotionsService = new PromotionsService(prisma, usersService);
+    const ordersService = new OrdersService(prisma, productsService, promotionsService);
+    service = new PaymentsService(prisma, usersService, ordersService);
   }, 60_000);
 
   beforeEach(async () => {
@@ -72,7 +80,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     userId = user.id;
 
     const order = await prisma.order.create({
-      data: { userId, total: 90000, status: "PENDING" },
+      data: { userId, total: 90000, status: "PENDING", subTotal: 90000 },
     });
     orderId = order.id;
   });
@@ -233,7 +241,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     await createPayment(key);
 
     const otherOrder = await prisma.order.create({
-      data: { userId, total: 50000, status: "PENDING" },
+      data: { userId, total: 50000, status: "PENDING", subTotal: 50000 },
     });
     try {
       await expect(createPayment(key, otherOrder.id)).rejects.toThrow(

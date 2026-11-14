@@ -26,7 +26,7 @@ export class OrdersController {
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateOrderDto, @Req() req: AuthenticatedRequest) {
-    return this.orders.create({ ...dto, userId: req.user!.sub });
+    return this.orders.create(dto, req.user!.sub);
   }
 
   @Get('me')

@@ -6,10 +6,16 @@ import {
 import { Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
+import { UsersService } from "../users/users.service";
+import { OrdersService } from "../orders/orders.service";
 
 @Injectable()
 export class PaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly userService: UsersService,
+    private readonly ordersService: OrdersService,
+  ) {}
 
   async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
     const order = await this.prisma.order.findUnique({
@@ -111,22 +117,29 @@ export class PaymentsService {
         };
       }
 
+      const targetStatus = dto.success ? "PAID" : "PAYMENT_FAILED";
+      this.ordersService.assertTransition(payment.order.status, targetStatus);
+
       const updated = await tx.order.updateMany({
         where: {
           id: payment.orderId,
-          status: { in: ["PENDING", "PAYMENT_FAILED"] },
+          status: payment.order.status,
         },
-        data: { status: dto.success ? "PAID" : "PAYMENT_FAILED" },
+        data: { status: targetStatus },
       });
 
       if (updated.count === 0) {
-        throw new ConflictException("Order is not payable");
+        throw new ConflictException("Order status changed concurrently");
       }
 
       const updatedPayment = await tx.payment.findUniqueOrThrow({
         where: { id: payment.id },
         include: { order: { include: { items: true } } },
       });
+
+      if (dto.success) {
+        await this.applyLoyalty(tx, payment.order);
+      }
 
       return {
         message: dto.success
@@ -136,5 +149,38 @@ export class PaymentsService {
         payment: updatedPayment,
       };
     });
+  }
+
+  private async applyLoyalty(
+    tx: Prisma.TransactionClient,
+    order: {
+      id: string;
+      userId: string | null;
+      promotionCode: string | null;
+      total: number;
+    },
+  ) {
+    if (!order.userId) return;
+
+    let spent = 0;
+
+    if (order.promotionCode) {
+      const promo = await tx.promotion.findUnique({
+        where: { code: order.promotionCode },
+        select: { pointCost: true },
+      });
+      spent = promo?.pointCost ?? 0;
+      await this.userService.redeemLoyaltyPoints(order.userId, spent);
+    }
+
+    const earned = this.userService.calculatePoints(order.total);
+    await this.userService.addLoyaltyPoints(order.userId, earned);
+
+    if (spent > 0) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { pointsSpent: spent },
+      });
+    }
   }
 }

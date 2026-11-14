@@ -3,18 +3,14 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
-  IsNotEmpty,
   IsOptional,
+  IsNotEmpty,
   IsString,
   Min,
   ValidateNested,
 } from "class-validator";
 
 export class CreateOrderItemDto {
-  @IsString()
-  @IsNotEmpty()
-  id: string;
-
   @IsString()
   @IsNotEmpty()
   productId: string;
@@ -49,22 +45,13 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
-  @IsString()
   @IsOptional()
-  userId?: string;
+  @IsString()
+  promotionCode?: string;
 
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CreateOrderItemDto)
   items: CreateOrderItemDto[];
-
-  @IsInt()
-  @Min(0)
-  total: number;
-
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  idempotencyKey?: string;
 }
