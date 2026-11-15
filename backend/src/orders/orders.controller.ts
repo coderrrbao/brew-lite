@@ -20,9 +20,9 @@ import type { AuthUser } from '../auth/auth-user';
 
 @Controller("orders")
 export class OrdersController {
-  constructor(private readonly orders: OrdersService) {}
+  constructor(private readonly orders: OrdersService) { }
 
-  
+
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateOrderDto, @Req() req: AuthenticatedRequest) {
@@ -33,6 +33,12 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   findMine(@CurrentUser() user: AuthUser) {
     return this.orders.findMine(user.sub);
+  }
+
+  @Get('staff')
+  @UseGuards(JwtAuthGuard, StaffGuard)
+  findAll() {
+    return this.orders.findAll();
   }
 
   @Patch(':id/status')
