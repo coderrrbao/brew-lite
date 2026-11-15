@@ -55,3 +55,29 @@ export async function getOrderById(id: string): Promise<Order | undefined> {
 
   return orders.find((order) => order.id === id);
 }
+export async function getAllOrders(): Promise<Order[]> {
+  const token = getAccessToken();
+
+  if (!token) {
+    throw new Error("Bạn chưa đăng nhập.");
+  }
+
+  const rows = await request<
+    Array<
+      Omit<Order, "createdAt"> & {
+        createdAt: string;
+        payments?: Order["payment"][];
+      }
+    >
+  >("/orders", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return rows.map((order) => ({
+    ...order,
+    createdAt: new Date(order.createdAt),
+    payment: order.payments?.[0],
+  }));
+}

@@ -138,6 +138,23 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       orderBy: { createdAt: "desc" },
     });
   }
+  
+  async findAll() {
+  return this.prisma.order.findMany({
+    include: {
+      items: true,
+      user: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
 
   async updateStatus(
     id: string,
