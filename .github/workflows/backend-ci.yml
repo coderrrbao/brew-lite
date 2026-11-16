@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
-    # Khai báo PostgreSQL service cho môi trường CI
     services:
       postgres:
         image: postgres:16-alpine
@@ -33,24 +32,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.4
-          run_install: false
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
-      # Cài đặt dependencies từ Root để nhận pnpm-lock.yaml
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: rm -f package-lock.json && npm install
 
       - name: Generate Prisma client
         working-directory: backend
-        run: pnpm db:generate
+        run: npm run db:generate
 
       - name: Push DB Schema
         working-directory: backend
@@ -62,21 +53,21 @@ jobs:
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
-        run: pnpm db:seed
+        run: npm run db:seed
 
       - name: Lint
         working-directory: backend
-        run: pnpm lint
+        run: npm run lint
 
       - name: Unit & Integration tests
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
-        run: pnpm test
+        run: npm test
 
       - name: Build
         working-directory: backend
-        run: pnpm build
+        run: npm run build
 
   frontend:
     name: Frontend quality checks
@@ -86,25 +77,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9.15.4
-          run_install: false
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
 
-      # Cài đặt dependencies từ Root để nhận pnpm-lock.yaml
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: rm -f package-lock.json && npm install
 
       - name: Type check & Lint
         working-directory: frontend
-        run: pnpm lint
+        run: npm run lint
 
       - name: Build
         working-directory: frontend
-        run: pnpm build
+        run: npm run build

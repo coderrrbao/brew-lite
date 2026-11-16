@@ -24,6 +24,22 @@ export default function MenuView({ products }: { products: Product[] }) {
   const { state } = useStore();
   const firstName = state.user?.name.split(" ").pop();
 
+  if (!products || products.length === 0) {
+    return (
+      <PageShell wide className="py-20 text-center">
+        <div className="mx-auto flex max-w-md flex-col items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-secondary text-3xl">
+            ☕
+          </div>
+          <h1 className="mt-6 text-3xl font-semibold sm:text-4xl">Thực đơn đang cập nhật</h1>
+          <p className="mt-3 text-muted-foreground">
+            Hiện tại quán chưa có món nào trong thực đơn. Vui lòng quay lại sau!
+          </p>
+        </div>
+      </PageShell>
+    );
+  }
+
   const filtered = active === 'all' ? products : products.filter((p) => p.category === active);
   const featured = products.find((p) => p.popular) ?? products[0];
 
@@ -120,11 +136,19 @@ export default function MenuView({ products }: { products: Product[] }) {
           </div>
         </div>
 
-        <div className="mt-8 grid grid-cols-1 gap-5 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        {filtered.length === 0 ? (
+          <div className="mt-12 rounded-2xl border border-dashed border-border py-16 text-center">
+            <p className="text-base font-medium text-muted-foreground">
+              Không có món nào thuộc danh mục này.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-8 grid grid-cols-1 gap-5 min-[520px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filtered.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        )}
       </section>
     </PageShell>
   );

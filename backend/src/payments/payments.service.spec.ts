@@ -116,7 +116,8 @@ describe("PaymentsService (PostgreSQL integration)", () => {
 
   const countPayments = () => prisma.payment.count({ where: { orderId } });
 
-  it("create() saves a PENDING payment and pay() changes the order to PAID", async () => {
+  // 1. LUỒNG THANH TOÁN CƠ BẢN
+  it("create() lưu giao dịch PENDING và pay() chuyển trạng thái đơn hàng sang PAID", async () => {
     const idempotencyKey = randomUUID();
     await createPayment(idempotencyKey);
 
@@ -140,7 +141,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     });
   });
 
-  it("pay() changes the order to PAYMENT_FAILED when payment fails", async () => {
+  it("pay() chuyển trạng thái đơn hàng sang PAYMENT_FAILED khi thanh toán thất bại", async () => {
     const idempotencyKey = randomUUID();
     await createPayment(idempotencyKey);
 
@@ -152,7 +153,8 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(fromDatabase.payments[0].status).toBe("PAYMENT_FAILED");
   });
 
-  it("pay() replays the PAID result for a repeated key (no error, no new payment)", async () => {
+  // 2. TÍNH BẤT BIẾN (IDEMPOTENCY) & RETRY
+  it("pay() trả lại kết quả PAID khi gọi lại cùng một idempotencyKey (không tạo thanh toán mới)", async () => {
     const idempotencyKey = randomUUID();
     await createPayment(idempotencyKey);
     const first = await service.pay({ idempotencyKey, success: true });
@@ -165,7 +167,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(1);
   });
 
-  it("pay() replays a FAILED result for the same key; a new key can retry", async () => {
+  it("pay() trả lại kết quả FAILED cho cùng một key; key mới có thể thử lại (retry)", async () => {
     const failedKey = randomUUID();
     await createPayment(failedKey);
     await service.pay({ idempotencyKey: failedKey, success: false });
@@ -190,13 +192,13 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(2);
   });
 
-  it("pay() throws NotFoundException for an unknown idempotency key", async () => {
+  it("pay() ném lỗi NotFoundException khi không tìm thấy idempotencyKey", async () => {
     await expect(
       service.pay({ idempotencyKey: randomUUID(), success: true }),
     ).rejects.toThrow(NotFoundException);
   });
 
-  it("create() with a repeated key returns the same pending payment", async () => {
+  it("create() với idempotencyKey bị trùng trả về cùng giao dịch PENDING", async () => {
     const key = randomUUID();
     const first = await createPayment(key);
     const second = await createPayment(key);
@@ -206,7 +208,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(1);
   });
 
-  it("create() with a key that already succeeded replays the PAID result", async () => {
+  it("create() với idempotencyKey đã thành công trả về kết quả PAID", async () => {
     const key = randomUUID();
     await createPayment(key);
     await service.pay({ idempotencyKey: key, success: true });
@@ -219,7 +221,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(1);
   });
 
-  it("create() rejects a new key on an order that is already PAID", async () => {
+  it("create() từ chối (ConflictException) key mới nếu đơn hàng đã ở trạng thái PAID", async () => {
     const key = randomUUID();
     await createPayment(key);
     await service.pay({ idempotencyKey: key, success: true });
@@ -230,13 +232,13 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(1);
   });
 
-  it("create() throws NotFoundException for a missing order", async () => {
+  it("create() ném lỗi NotFoundException khi không tìm thấy đơn hàng", async () => {
     await expect(createPayment(randomUUID(), randomUUID())).rejects.toThrow(
       NotFoundException,
     );
   });
 
-  it("create() rejects a key that belongs to another order", async () => {
+  it("create() từ chối (ConflictException) idempotencyKey thuộc về đơn hàng khác", async () => {
     const key = randomUUID();
     await createPayment(key);
 
@@ -252,7 +254,8 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     }
   });
 
-  it("concurrent create() with the same key creates only one payment (unique constraint)", async () => {
+  // 3. XỬ LÝ ĐỒNG THỜI (CONCURRENCY)
+  it("gọi đồng thời create() với cùng idempotencyKey chỉ tạo duy nhất 1 payment (unique constraint)", async () => {
     const key = randomUUID();
     const [a, b] = await Promise.all([createPayment(key), createPayment(key)]);
 
@@ -260,7 +263,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await countPayments()).toBe(1);
   });
 
-  it("concurrent pay() with the same key: one payment, both get the PAID result", async () => {
+  it("gọi đồng thời pay() với cùng idempotencyKey: chỉ xử lý 1 lần, cả 2 đều nhận kết quả PAID", async () => {
     const idempotencyKey = randomUUID();
     await createPayment(idempotencyKey);
 

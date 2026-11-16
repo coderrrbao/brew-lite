@@ -1,0 +1,2 @@
+ALTER TABLE "Promotion"
+ADD COLUMN "expiresAt" TIMESTAMP(3);

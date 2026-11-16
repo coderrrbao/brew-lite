@@ -1,21 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { Be_Vietnam_Pro, Fraunces } from 'next/font/google';
 import Navbar from '@/components/Navbar';
 import Providers from './providers';
 import './globals.css';
-
-const beVietnam = Be_Vietnam_Pro({
-  subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-be-vietnam',
-  display: 'swap',
-});
-
-const fraunces = Fraunces({
-  subsets: ['latin'],
-  variable: '--font-fraunces',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'BrewLite - Đặt cà phê, nhận tại quầy',
@@ -26,7 +12,7 @@ export const viewport: Viewport = { themeColor: '#f5efe6' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="vi" className={`${beVietnam.variable} ${fraunces.variable}`}>
+    <html lang="vi">
       <body>
         <Providers>
           <Navbar />

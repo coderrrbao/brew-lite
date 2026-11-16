@@ -1,8 +1,18 @@
 {
-  "devDependencies": {
-    "@types/node": "^26.6.6",
-    "prisma": "^8.0.0-rc.28",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+  "name": "brewlite-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run start:dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "test:backend": "npm test --prefix backend",
+    "prisma:generate": "npx prisma generate --schema=backend/prisma/schema.prisma",
+    "prisma:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma"
   }
 }
