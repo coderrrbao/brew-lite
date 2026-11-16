@@ -1,0 +1,18 @@
+{
+  "name": "brewlite-root",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:backend": "npm run start:dev --prefix apps/api",
+    "dev:frontend": "npm run dev --prefix apps/web",
+    "build:backend": "npm run build --prefix apps/api",
+    "build:frontend": "npm run build --prefix apps/web",
+    "test:backend": "npm test --prefix apps/api",
+    "prisma:generate": "npx prisma generate --schema=apps/api/prisma/schema.prisma",
+    "prisma:migrate": "npx prisma migrate dev --schema=apps/api/prisma/schema.prisma"
+  }
+}

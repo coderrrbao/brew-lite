@@ -1,0 +1,133 @@
+import type { Product } from "../generated/prisma/client";
+
+// Mock data - replace with Prisma queries later
+export const mockProducts: Product[] = [
+  {
+    id: "phin-sua",
+    name: "Cà Phê Sữa Đá gây",
+    description:
+      "Cà phê Robusta pha phin truyền thống, kết hợp sữa đặc thơm béo và đá viên mát lạnh.",
+    price: 35000,
+    category: "cold",
+    imageUrl:
+      "https://images.unsplash.com/photo-1509042239860-f550ce710b93?fit=crop&auto=format",
+    popular: true,
+    stock: 50,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "espresso",
+    name: "Espresso",
+    description:
+      "Shot espresso đậm đà từ hạt Arabica rang vừa, hương hoa quả tinh tế, crema vàng óng.",
+    price: 45000,
+    category: "hot",
+    imageUrl:
+      "https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?fit=crop&auto=format",
+    popular: true,
+    stock: 40,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "latte",
+    name: "Caffe Latte",
+    description:
+      "Espresso đơn hoà quyện cùng sữa hấp mịn mượt, lớp milk foam nhẹ nhàng phủ trên bề mặt.",
+    price: 55000,
+    category: "hot",
+    imageUrl:
+      "https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&auto=format",
+    popular: true,
+    stock: 35,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "cappuccino",
+    name: "Cappuccino",
+    description:
+      "Tỷ lệ 1:1:1 hoàn hảo giữa espresso, sữa hấp và foam — béo ngậy, thơm nồng.",
+    price: 55000,
+    category: "hot",
+    imageUrl:
+      "https://images.unsplash.com/photo-1572442388796-11668a67e53d?fit=crop&auto=format",
+    popular: false,
+    stock: 30,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "americano",
+    name: "Americano",
+    description:
+      "Espresso pha loãng với nước nóng, giữ trọn hương vị cà phê nhưng nhẹ dịu hơn.",
+    price: 45000,
+    category: "hot",
+    imageUrl:
+      "https://images.unsplash.com/photo-1521302080334-4bedac2763b6?fit=crop&auto=format",
+    popular: false,
+    stock: 45,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "cold-brew",
+    name: "Cold Brew",
+    description:
+      "Ủ lạnh 18 giờ từ hạt Arabica Ethiopia, vị ngọt tự nhiên, bóng mượt, không đắng.",
+    price: 60000,
+    category: "cold",
+    imageUrl:
+      "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?fit=crop&auto=format",
+    popular: true,
+    stock: 20,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "matcha-latte",
+    name: "Matcha Latte",
+    description:
+      "Bột trà xanh Uji Nhật Bản hảo hạng, khuấy đều với sữa hấp, vị đắng ngọt cân bằng.",
+    price: 65000,
+    category: "specialty",
+    imageUrl:
+      "https://images.unsplash.com/photo-1515823662972-da6a2e4d3002?fit=crop&auto=format",
+    popular: true,
+    stock: 25,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+  {
+    id: "caramel-macchiato",
+    name: "Caramel Macchiato",
+    description:
+      "Vanilla, sữa hấp, espresso đổ từ trên xuống, kết thúc bằng lưới caramel handcrafted.",
+    price: 65000,
+    category: "specialty",
+    imageUrl:
+      "https://images.unsplash.com/photo-1485808191679-5f86510bd9d4?fit=crop&auto=format",
+    popular: false,
+    stock: 28,
+    version: 0,
+    active: true,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  },
+];
