@@ -29,9 +29,9 @@ enum OrderStatus {
 }
 
 enum PaymentStatus {
+  PAID
+  FAILED
   PENDING
-  PAYMENT_FAILED
-  PAYMENT_SUCCESS
 }
 
 enum PromotionType {
@@ -118,7 +118,6 @@ model Payment {
 
   @@index([orderId, createdAt])
 }
-
 model Promotion {
   code                  String        @id
   description           String

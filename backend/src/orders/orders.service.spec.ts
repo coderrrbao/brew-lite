@@ -1,10 +1,12 @@
+// src/orders/orders.service.spec.ts
 import { ConflictException } from "@nestjs/common";
 import type { OrderStatus } from "../generated/prisma/client";
 import { OrdersService } from "./orders.service";
+
 describe("OrdersService", () => {
   const service = new OrdersService({} as never, {} as never, {} as never);
 
-  //1.CHUYỂN TRẠNG THÁI HỢP LỆ
+  // 1. CHUYỂN TRẠNG THÁI HỢP LỆ
 
   // Chờ thanh toán → Đã thanh toán
   it("cho phép PENDING → PAID", () => {
@@ -53,17 +55,17 @@ describe("OrdersService", () => {
     ).not.toThrow();
   });
 
-  // Thanh toán thất bại → retry trực tiếp lên PAID (không cần qua PENDING)
-  it("từ chối PAYMENT_FAILED → PENDING", () => {
+  // Cho phép thử lại thanh toán từ PAYMENT_FAILED về PENDING
+  it("cho phép PAYMENT_FAILED → PENDING", () => {
     expect(() =>
       service.assertTransition(
         "PAYMENT_FAILED" as OrderStatus,
         "PENDING" as OrderStatus,
       ),
-    ).toThrow(ConflictException);
+    ).not.toThrow();
   });
 
-  //2. HỦY ĐƠN HÀNG
+  // 2. HỦY ĐƠN HÀNG
 
   // Hủy đơn đang chờ thanh toán
   it("cho phép PENDING → CANCELLED", () => {
@@ -75,7 +77,7 @@ describe("OrdersService", () => {
     ).not.toThrow();
   });
 
-  // Hủy đơn đã thanh toán (nếu hệ thống cho phép)
+  // Hủy đơn đã thanh toán
   it("cho phép PAID → CANCELLED", () => {
     expect(() =>
       service.assertTransition(
@@ -85,7 +87,7 @@ describe("OrdersService", () => {
     ).not.toThrow();
   });
 
-  // Thanh toán thất bại → Thử lại thanh toán trực tiếp
+  // Thanh toán thất bại → Thử lại thanh toán trực tiếp sang PAID
   it("cho phép PAYMENT_FAILED → PAID", () => {
     expect(() =>
       service.assertTransition(
@@ -104,7 +106,7 @@ describe("OrdersService", () => {
     ).not.toThrow();
   });
 
-  //3. CHUYỂN TRẠNG THÁI KHÔNG HỢP LỆ
+  // 3. CHUYỂN TRẠNG THÁI KHÔNG HỢP LỆ
 
   it("từ chối chuyển trạng thái đơn hàng không hợp lệ", () => {
     expect(() =>
@@ -114,6 +116,7 @@ describe("OrdersService", () => {
       ),
     ).toThrow(ConflictException);
   });
+
   // Không cho phép bỏ qua bước chuẩn bị đơn
   it("từ chối PAID → COMPLETED", () => {
     expect(() =>

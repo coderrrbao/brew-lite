@@ -22,7 +22,7 @@ const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
   PREPARING: ["READY"],
   READY: ["COMPLETED"],
   COMPLETED: [],
-  PAYMENT_FAILED: ["PAID", "CANCELLED"],
+  PAYMENT_FAILED: ["PENDING", "PAID", "CANCELLED"],
   CANCELLED: [],
 };
 
@@ -209,6 +209,58 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       orderBy: {
         createdAt: "desc",
       },
+    });
+  }
+
+  // Dành riêng cho khách hàng tự cập nhật trạng thái đơn của chính mình (Thanh toán lại -> PENDING hoặc Hủy -> CANCELLED)
+  async updateStatusByUser(
+    id: string,
+    status: OrderStatus,
+    userId: string,
+  ): Promise<OrderWithRelations> {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+    });
+
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+
+    if (order.userId !== userId) {
+      throw new ConflictException("You do not have permission to modify this order");
+    }
+
+    if (status !== "PENDING" && status !== "CANCELLED") {
+      throw new ConflictException("Customers can only retry or cancel their orders");
+    }
+
+    this.assertTransition(order.status, status);
+
+    const updated = await this.prisma.order.updateMany({
+      where: { id, status: order.status },
+      data: { status },
+    });
+
+    if (updated.count === 0) {
+      throw new ConflictException("Order status changed concurrently");
+    }
+
+    // Nếu khách hàng tự hủy đơn (CANCELLED), tự động hoàn trả lại tồn kho sản phẩm
+    if (status === "CANCELLED" && order.status !== "CANCELLED") {
+      const orderItems = await this.prisma.orderItem.findMany({
+        where: { orderId: id },
+      });
+      for (const item of orderItems) {
+        await this.prisma.product.update({
+          where: { id: item.productId as string},
+          data: { stock: { increment: item.qty } },
+        }).catch(() => {});
+      }
+    }
+
+    return this.prisma.order.findUniqueOrThrow({
+      where: { id },
+      include: { items: true },
     });
   }
 

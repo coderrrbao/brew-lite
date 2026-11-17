@@ -3,72 +3,59 @@ import {
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
-import { Prisma } from "../generated/prisma/client";
+import { OrderStatus, PaymentStatus, Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
-import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
+import { ProductsService } from "../products/products.service";
 import { UsersService } from "../users/users.service";
-import { OrdersService } from "../orders/orders.service";
+import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
+
+const PAYABLE: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED];
 
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly userService: UsersService,
-    private readonly ordersService: OrdersService,
+    private readonly productsService: ProductsService,
+    private readonly usersService: UsersService,
   ) {}
 
   async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
     const order = await this.prisma.order.findUnique({
       where: { id: dto.orderId },
+      select: { id: true, total: true, status: true },
     });
-    if (!order) {
-      throw new NotFoundException("Đơn hàng không tồn tại");
+    if (!order) throw new NotFoundException("Đơn hàng không tồn tại");
+    if (!PAYABLE.includes(order.status)) {
+      throw new ConflictException("Đơn hàng đã thanh toán hoặc không thể thanh toán");
     }
 
-    let payment = await this.prisma.payment.findUnique({
-      where: { idempotencyKey: dto.idempotencyKey },
-    });
-
-    if (!payment) {
-      if (!["PENDING", "PAYMENT_FAILED"].includes(order.status)) {
-        throw new ConflictException("Order is not payable");
-      }
-
-      try {
-        payment = await this.prisma.payment.create({
-          data: {
-            orderId: order.id,
-            idempotencyKey: dto.idempotencyKey,
-            amount: order.total,
-            method: dto.method,
-            status: "PENDING",
-          },
+    let payment;
+    try {
+      payment = await this.prisma.payment.create({
+        data: {
+          orderId: order.id,
+          idempotencyKey: dto.idempotencyKey,
+          amount: order.total,
+          method: dto.method,
+          status: PaymentStatus.PENDING, // Khởi tạo ở trạng thái PENDING
+        },
+      });
+    } catch (e) {
+      // Trùng idempotencyKey => coi như request lặp, lấy lại payment cũ
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        payment = await this.prisma.payment.findUniqueOrThrow({
+          where: { idempotencyKey: dto.idempotencyKey },
         });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
-          payment = await this.prisma.payment.findUniqueOrThrow({
-            where: { idempotencyKey: dto.idempotencyKey },
-          });
-        } else {
-          throw error;
+        if (payment.orderId !== order.id) {
+          throw new ConflictException("Idempotency key đã dùng cho đơn hàng khác");
         }
+      } else {
+        throw e;
       }
-    }
-
-    if (payment.orderId !== dto.orderId) {
-      throw new ConflictException("Idempotency key đã dùng cho đơn hàng khác");
     }
 
     return {
-      message:
-        payment.status === "PAYMENT_SUCCESS"
-          ? "Đơn hàng đã thanh toán"
-          : payment.status === "PAYMENT_FAILED"
-            ? "Đơn thanh toán thất bại"
-            : `QR thanh toán cho đơn hàng ${payment.orderId}`,
+      message: `QR thanh toán cho đơn hàng ${payment.orderId}`,
       payment,
       orderId: payment.orderId,
     };
@@ -80,107 +67,122 @@ export class PaymentsService {
         where: { idempotencyKey: dto.idempotencyKey },
         include: { order: { include: { items: true } } },
       });
-      if (!payment) {
-        throw new NotFoundException("Payment key not found");
-      }
+      if (!payment) throw new NotFoundException("Payment key not found");
 
-      if (payment.status !== "PENDING") {
+      const { order } = payment;
+
+      // Đã xử lý rồi (retry / double-click) => trả kết quả hiện tại
+      if (!PAYABLE.includes(order.status)) {
         return {
           message:
-            payment.status === "PAYMENT_SUCCESS"
+            order.status === OrderStatus.PAID
               ? "Đơn hàng đã thanh toán"
-              : "Đơn thanh toán thất bại",
-          order: payment.order,
+              : "Đơn hàng không thể thanh toán",
+          order,
           payment,
         };
       }
 
-      const claimed = await tx.payment.updateMany({
-        where: { id: payment.id, status: "PENDING" },
-        data: { status: dto.success ? "PAYMENT_SUCCESS" : "PAYMENT_FAILED" },
-      });
-
-      if (claimed.count === 0) {
-        const current = await tx.payment.findUniqueOrThrow({
-          where: { id: payment.id },
-          include: { order: { include: { items: true } } },
-        });
-        return {
-          message:
-            current.status === "PAYMENT_SUCCESS"
-              ? "Đơn hàng đã thanh toán"
-              : current.status === "PAYMENT_FAILED"
-                ? "Đơn thanh toán thất bại"
-                : "Đơn hàng đang trong quá trình thanh toán",
-          order: current.order,
-          payment: current,
-        };
-      }
-
-      const targetStatus = dto.success ? "PAID" : "PAYMENT_FAILED";
-      this.ordersService.assertTransition(payment.order.status, targetStatus);
-
-      const updated = await tx.order.updateMany({
-        where: {
-          id: payment.orderId,
-          status: payment.order.status,
-        },
-        data: { status: targetStatus },
-      });
-
-      if (updated.count === 0) {
-        throw new ConflictException("Order status changed concurrently");
-      }
-
-      const updatedPayment = await tx.payment.findUniqueOrThrow({
-        where: { id: payment.id },
-        include: { order: { include: { items: true } } },
-      });
-
+      let pointsSpent = 0;
       if (dto.success) {
-        await this.applyLoyalty(tx, payment.order);
+        // 1. Trừ kho trước (thiếu hàng => throw => rollback toàn bộ, đơn giữ nguyên trạng thái)
+        await this.productsService.reserveStock(
+          tx,
+          order.items.flatMap((i) =>
+            i.productId ? [{ productId: i.productId, qty: i.qty }] : [],
+          ),
+        );
+        // 2. Điểm thưởng
+        pointsSpent = await this.applyLoyalty(tx, order);
       }
+
+      // 3. Cuối cùng mới đổi trạng thái (guard status chống race giữa 2 request)
+      let updatedOrder;
+      try {
+        updatedOrder = await tx.order.update({
+          where: { id: order.id, status: order.status },
+          data: {
+            status: dto.success ? OrderStatus.PAID : OrderStatus.PAYMENT_FAILED,
+            pointsSpent,
+          },
+          include: { items: true, payments: true },
+        });
+      } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+          throw new ConflictException("Trạng thái đơn hàng vừa thay đổi"); // rollback cả kho + điểm
+        }
+        throw e;
+      }
+
+      const updatedPayment = await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: dto.success ? PaymentStatus.PAID : PaymentStatus.FAILED },
+      });
 
       return {
         message: dto.success
-          ? `Thanh toán đơn hàng ${payment.orderId} thành công`
-          : `Thanh toán đơn hàng ${payment.orderId} thất bại`,
-        order: updatedPayment.order,
+          ? `Thanh toán đơn hàng ${order.id} thành công`
+          : `Thanh toán đơn hàng ${order.id} thất bại`,
+        order: updatedOrder,
         payment: updatedPayment,
       };
     });
   }
 
+  /** Trừ điểm đổi khuyến mãi + cộng điểm tích lũy trong 1 câu update. Trả về số điểm đã tiêu. */
   private async applyLoyalty(
     tx: Prisma.TransactionClient,
-    order: {
-      id: string;
-      userId: string | null;
-      promotionCode: string | null;
-      total: number;
-    },
-  ) {
-    if (!order.userId) return;
+    order: { userId: string | null; promotionCode: string | null; total: number },
+  ): Promise<number> {
+    if (!order.userId) return 0;
 
-    let spent = 0;
+    const spent = order.promotionCode
+      ? ((
+          await tx.promotion.findUnique({
+            where: { code: order.promotionCode },
+            select: { pointCost: true },
+          })
+        )?.pointCost ?? 0)
+      : 0;
 
-    if (order.promotionCode) {
-      const promo = await tx.promotion.findUnique({
-        where: { code: order.promotionCode },
-        select: { pointCost: true },
-      });
-      spent = promo?.pointCost ?? 0;
-      await this.userService.redeemLoyaltyPoints(order.userId, spent);
+    const earned = this.usersService.calculatePoints(order.total);
+
+    const res = await tx.user.updateMany({
+      where: { id: order.userId, loyaltyPoints: { gte: spent } },
+      data: { loyaltyPoints: { increment: earned - spent } },
+    });
+    if (res.count === 0) throw new ConflictException("Không đủ điểm thưởng");
+
+    return spent;
+  }
+
+  async reserveStock(
+    tx: Prisma.TransactionClient,
+    items: ReadonlyArray<{ productId: string; qty: number }>,
+  ): Promise<void> {
+    // Gộp các dòng cùng sản phẩm
+    const quantities = new Map<string, number>();
+    for (const { productId, qty } of items) {
+      quantities.set(productId, (quantities.get(productId) ?? 0) + qty);
     }
 
-    const earned = this.userService.calculatePoints(order.total);
-    await this.userService.addLoyaltyPoints(order.userId, earned);
+    // Sắp xếp id để các transaction đồng thời khóa theo cùng một thứ tự, tránh deadlock
+    const entries = [...quantities].sort(([a], [b]) => a.localeCompare(b));
 
-    if (spent > 0) {
-      await tx.order.update({
-        where: { id: order.id },
-        data: { pointsSpent: spent },
+    for (const [productId, qty] of entries) {
+      const { count } = await tx.product.updateMany({
+        where: { id: productId, stock: { gte: qty } },
+        data: { stock: { decrement: qty }, version: { increment: 1 } },
       });
+      if (count > 0) continue;
+
+      // Chỉ query thêm khi thất bại để báo đúng lý do
+      const exists = await tx.product.findUnique({
+        where: { id: productId },
+        select: { id: true },
+      });
+      if (!exists) throw new NotFoundException(`Sản phẩm ${productId} không tồn tại`);
+      throw new ConflictException(`Sản phẩm ${productId} không đủ hàng`);
     }
   }
 }

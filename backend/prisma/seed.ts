@@ -6,6 +6,7 @@ import {
   PrismaClient,
   ProductCategory,
   OrderStatus,
+  PaymentStatus,
   PromotionType,
 } from "../src/generated/prisma/client";
 
@@ -20,7 +21,6 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Bắt đầu xóa dữ liệu cũ...");
-  // Xóa theo thứ tự phụ thuộc để tránh xung đột Foreign Key
   await prisma.payment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
@@ -51,6 +51,13 @@ async function main() {
   });
 
   console.log("📦 Đang tạo Sản phẩm...");
+  const imgCfBlack =
+    "https://plus.unsplash.com/premium_photo-1733317435318-531c85f0f00a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+  const imgCfMilk =
+    "https://images.unsplash.com/photo-1652284916898-b46f3d32e76b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+  const imgMatcha =
+    "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D";
+
   await prisma.product.createMany({
     data: [
       {
@@ -58,8 +65,7 @@ async function main() {
         name: "Cà Phê Đen Đá",
         description: "Cà phê đậm vị truyền thống pha phin",
         price: 25000,
-        imageUrl:
-          "https://plus.unsplash.com/premium_photo-1733317435318-531c85f0f00a?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+        imageUrl: imgCfBlack,
         stock: 100,
         category: ProductCategory.hot,
         popular: true,
@@ -70,8 +76,7 @@ async function main() {
         name: "Cà Phê Sữa Đá",
         description: "Cà phê phin kết hợp sữa đặc ngọt béo",
         price: 29000,
-        imageUrl:
-          "https://images.unsplash.com/photo-1652284916898-b46f3d32e76b?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+        imageUrl: imgCfMilk,
         stock: 150,
         category: ProductCategory.cold,
         popular: true,
@@ -82,8 +87,7 @@ async function main() {
         name: "Matcha Latte Thượng Hạng",
         description: "Matcha trà xanh Nhật Bản pha sữa tươi thơm ngon",
         price: 45000,
-        imageUrl:
-          "https://images.unsplash.com/photo-1515823064-d6e0c04616a7?q=80&w=1171&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+        imageUrl: imgMatcha,
         stock: 80,
         category: ProductCategory.specialty,
         popular: true,
@@ -116,7 +120,7 @@ async function main() {
     ],
   });
 
-  console.log("👤 Đang tạo Nguời dùng...");
+  console.log("👤 Đang tạo Người dùng...");
   const passwordHash = await hash("matkhau123", 10);
 
   const user1 = await prisma.user.create({
@@ -170,7 +174,6 @@ async function main() {
   });
 
   console.log("🛒 Đang tạo Đơn hàng & Chi tiết...");
-  // Đơn 1: Đã hoàn thành
   await prisma.order.create({
     data: {
       userId: user1.id,
@@ -182,7 +185,7 @@ async function main() {
           {
             productId: "prod-cf-milk",
             name: "Cà Phê Sữa Đá",
-            imageUrl: "/images/products/milk-coffee.jpg",
+            imageUrl: imgCfMilk,
             size: "L",
             toppings: ["pearl", "grass-jelly"],
             qty: 2,
@@ -192,7 +195,7 @@ async function main() {
           {
             productId: "prod-cf-black",
             name: "Cà Phê Đen Đá",
-            imageUrl: "/images/products/black-coffee.jpg",
+            imageUrl: imgCfBlack,
             size: "M",
             toppings: [],
             qty: 1,
@@ -206,12 +209,12 @@ async function main() {
           idempotencyKey: "PAY-KEY-001",
           amount: 83000,
           method: "MOMO",
+          status: PaymentStatus.PAID,
         },
       },
     },
   });
 
-  // Đơn 2: Đang chuẩn bị
   await prisma.order.create({
     data: {
       userId: user2.id,
@@ -223,7 +226,7 @@ async function main() {
           {
             productId: "prod-matcha-latte",
             name: "Matcha Latte Thượng Hạng",
-            imageUrl: "/images/products/matcha-latte.jpg",
+            imageUrl: imgMatcha,
             size: "M",
             toppings: ["cheese-foam"],
             qty: 1,
@@ -237,6 +240,7 @@ async function main() {
           idempotencyKey: "PAY-KEY-002",
           amount: 45000,
           method: "BANK_TRANSFER",
+          status: PaymentStatus.PAID,
         },
       },
     },
