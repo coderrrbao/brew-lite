@@ -12,6 +12,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,12 +52,20 @@ export default function AuthPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
-    if (!email || !password || (mode === 'register' && !name)) {
+    if (
+      !email ||
+      !password ||
+      (mode === 'register' && (!name || !confirmPassword))
+    ) {
       setError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
     if (mode === 'register' && password.length < 8) {
       setError('Mật khẩu phải có ít nhất 8 ký tự.');
+      return;
+    }
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.');
       return;
     }
     setLoading(true);
@@ -126,6 +135,17 @@ export default function AuthPage() {
             placeholder={isLogin ? 'Nhập mật khẩu' : 'Ít nhất 8 ký tự'}
             autoComplete={isLogin ? 'current-password' : 'new-password'}
           />
+          {!isLogin && (
+            <Field
+              id="confirm-password"
+              label="Xác nhận mật khẩu"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Nhập lại mật khẩu"
+              autoComplete="new-password"
+            />
+          )}
 
           {error && (
             <p role="alert" className="rounded-lg bg-[#f3d6d2] px-4 py-2.5 text-sm font-medium text-[#8a2a20]">

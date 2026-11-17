@@ -17,4 +17,4 @@ COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/prisma.config.* ./
 COPY --from=builder /app/prisma ./prisma
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]

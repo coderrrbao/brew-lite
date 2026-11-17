@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { formatPrice } from "@/lib/data";
 import {
-  sizes,
-  toppings,
-  formatPrice,
+  getSizes,
+  getToppings,
+  type SizeOption,
+  type Topping,
   type Product,
-} from "@/lib/data";
+} from "@/lib/api/products";
 import { useStore, type CartItem } from "@/lib/store";
 import {
   PageShell,
@@ -23,10 +25,43 @@ import {
 export default function ProductView({ product }: { product: Product | null }) {
   const { dispatch, cartCount } = useStore();
 
-  const [size, setSize] = useState<"S" | "M" | "L">("M");
+  const [sizes, setSizes] = useState<SizeOption[]>([]);
+  const [toppings, setToppings] = useState<Topping[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+
+  const [size, setSize] = useState<string>("M");
   const [picked, setPicked] = useState<string[]>([]);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOptions() {
+      try {
+        const [sizeList, toppingList] = await Promise.all([
+          getSizes(),
+          getToppings(),
+        ]);
+        if (!active) return;
+        setSizes(sizeList);
+        setToppings(toppingList);
+        if (sizeList.length > 0 && !sizeList.some((s) => s.value === "M")) {
+          setSize(sizeList[0].value);
+        }
+      } catch (error) {
+        console.error("Không thể tải kích cỡ và topping:", error);
+      } finally {
+        if (active) setLoadingOptions(false);
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (!product) {
     return (
@@ -112,87 +147,99 @@ export default function ProductView({ product }: { product: Product | null }) {
           </p>
 
           <Section title="Kích cỡ">
-            <div
-              role="radiogroup"
-              aria-label="Kích cỡ"
-              className="grid grid-cols-3 gap-3"
-            >
-              {sizes.map((s) => {
-                const on = size === s.value;
-                return (
-                  <button
-                    key={s.value}
-                    role="radio"
-                    aria-checked={on}
-                    onClick={() => setSize(s.value)}
-                    className={`rounded-xl border px-3 py-3 text-center transition ${
-                      on
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-card hover:border-foreground/40"
-                    }`}
-                  >
-                    <span className="block font-display text-xl font-semibold">
-                      {s.value}
-                    </span>
-                    <span
-                      className={`block text-xs ${
+            {loadingOptions ? (
+              <p className="text-sm text-muted-foreground">
+                Đang tải kích cỡ...
+              </p>
+            ) : (
+              <div
+                role="radiogroup"
+                aria-label="Kích cỡ"
+                className="grid grid-cols-3 gap-3"
+              >
+                {sizes.map((s) => {
+                  const on = size === s.value;
+                  return (
+                    <button
+                      key={s.value}
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setSize(s.value)}
+                      className={`rounded-xl border px-3 py-3 text-center transition ${
                         on
-                          ? "text-primary-foreground/80"
-                          : "text-muted-foreground"
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-card hover:border-foreground/40"
                       }`}
                     >
-                      {s.label.replace(/\s*\(.*\)/, "")}
-                    </span>
-                    <span
-                      className={`tabular mt-1 block text-xs font-medium ${
-                        on ? "text-primary-foreground" : "text-accent"
-                      }`}
-                    >
-                      {s.priceAdd > 0
-                        ? `+${formatPrice(s.priceAdd)}`
-                        : "Mặc định"}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span className="block font-display text-xl font-semibold">
+                        {s.value}
+                      </span>
+                      <span
+                        className={`block text-xs ${
+                          on
+                            ? "text-primary-foreground/80"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {s.label.replace(/\s*\(.*\)/, "")}
+                      </span>
+                      <span
+                        className={`tabular mt-1 block text-xs font-medium ${
+                          on ? "text-primary-foreground" : "text-accent"
+                        }`}
+                      >
+                        {s.priceAdd > 0
+                          ? `+${formatPrice(s.priceAdd)}`
+                          : "Mặc định"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Section>
 
           <Section title="Topping" hint="Tuỳ chọn">
-            <div className="space-y-2.5">
-              {toppings.map((t) => {
-                const on = picked.includes(t.id);
-                return (
-                  <button
-                    key={t.id}
-                    role="checkbox"
-                    aria-checked={on}
-                    onClick={() => toggle(t.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
-                      on
-                        ? "border-accent bg-accent/5"
-                        : "border-border bg-card hover:border-foreground/40"
-                    }`}
-                  >
-                    <span
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+            {loadingOptions ? (
+              <p className="text-sm text-muted-foreground">
+                Đang tải topping...
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {toppings.map((t) => {
+                  const on = picked.includes(t.id);
+                  return (
+                    <button
+                      key={t.id}
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => toggle(t.id)}
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
                         on
-                          ? "border-accent bg-accent text-accent-foreground"
-                          : "border-border bg-background"
+                          ? "border-accent bg-accent/5"
+                          : "border-border bg-card hover:border-foreground/40"
                       }`}
                     >
-                      {on && <CheckIcon size={13} />}
-                    </span>
-                    <span className="flex-1 text-[15px] font-medium">
-                      {t.label}
-                    </span>
-                    <span className="tabular text-sm text-muted-foreground">
-                      +{formatPrice(t.price)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                      <span
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                          on
+                            ? "border-accent bg-accent text-accent-foreground"
+                            : "border-border bg-background"
+                        }`}
+                      >
+                        {on && <CheckIcon size={13} />}
+                      </span>
+                      <span className="flex-1 text-[15px] font-medium">
+                        {t.label}
+                      </span>
+                      <span className="tabular text-sm text-muted-foreground">
+                        +{formatPrice(t.price)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </Section>
 
           <Section title="Số lượng">
@@ -204,6 +251,7 @@ export default function ProductView({ product }: { product: Product | null }) {
               <div className="mx-auto max-w-6xl">
                 <button
                   onClick={addToCart}
+                  disabled={loadingOptions}
                   className={`${btnPrimary} h-14 w-full justify-between px-7 text-base ${
                     added ? "bg-success hover:bg-success" : ""
                   }`}

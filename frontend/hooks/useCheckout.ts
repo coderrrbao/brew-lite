@@ -1,7 +1,7 @@
 import { createOrderAndPay } from "@/lib/api/checkout";
 import { confirmPayment } from "@/lib/api/payments";
-import { PromotionValidation } from "@/lib/api/promotions";
-import { OrderItem, useStore } from "@/lib/store";
+import type { PromotionValidation } from "@/lib/api/promotions";
+import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
@@ -15,7 +15,7 @@ export interface CheckoutSession {
 export function useCheckout(
   method: string,
   appliedCode: string | undefined,
-  result?: PromotionValidation,
+  _result?: PromotionValidation,
 ) {
   const { state, dispatch, cartTotal } = useStore();
   const router = useRouter();
@@ -32,12 +32,13 @@ export function useCheckout(
       keyRef.current ??= crypto.randomUUID();
 
       const s = await createOrderAndPay({
-        userId: state.user?.id,
         promotionCode: appliedCode,
-        total: result?.totalAmount || 0,
-        discount: result?.discountAmount || 0,
-        items: state.cart,
-        subtotal: cartTotal,
+        items: state.cart.map((item) => ({
+          productId: item.productId,
+          size: item.size,
+          toppings: item.toppings,
+          qty: item.qty,
+        })),
         method,
         idempotencyKey: keyRef.current,
       });
@@ -83,8 +84,9 @@ export function useCheckout(
           ? error.message
           : "Không xác nhận được thanh toán.",
       );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return {

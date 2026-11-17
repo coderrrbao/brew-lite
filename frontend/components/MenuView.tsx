@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatPrice, type Category, type Product } from "@/lib/data";
+import { formatPrice, type Category } from "@/lib/data";
+import type { Product } from "@/lib/api/products";
 import { useStore } from "@/lib/store";
 import { PageShell, PlusIcon, Eyebrow } from "./ui";
 

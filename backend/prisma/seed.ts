@@ -27,6 +27,28 @@ async function main() {
   await prisma.product.deleteMany();
   await prisma.user.deleteMany();
   await prisma.promotion.deleteMany();
+  await prisma.sizeOption.deleteMany();
+  await prisma.topping.deleteMany();
+
+  console.log("📏 Đang tạo Kích cỡ (Sizes)...");
+  await prisma.sizeOption.createMany({
+    data: [
+      { value: "S", label: "Nhỏ (S)", priceAdd: 0 },
+      { value: "M", label: "Vừa (M)", priceAdd: 5000 },
+      { value: "L", label: "Lớn (L)", priceAdd: 10000 },
+    ],
+  });
+
+  console.log("🧋 Đang tạo Topping...");
+  await prisma.topping.createMany({
+    data: [
+      { id: "pearl", label: "Trân châu đen", price: 5000, active: true },
+      { id: "white-pearl", label: "Trân châu trắng", price: 6000, active: true },
+      { id: "grass-jelly", label: "Sương sáo", price: 5000, active: true },
+      { id: "cheese-foam", label: "Kem Cheese", price: 10000, active: true },
+      { id: "espresso-shot", label: "Thêm 1 shot Espresso", price: 12000, active: true },
+    ],
+  });
 
   console.log("📦 Đang tạo Sản phẩm...");
   await prisma.product.createMany({
@@ -153,7 +175,7 @@ async function main() {
     data: {
       userId: user1.id,
       total: 83000,
-      subTotal: 8300,
+      subTotal: 83000,
       status: OrderStatus.COMPLETED,
       items: {
         create: [
@@ -162,7 +184,7 @@ async function main() {
             name: "Cà Phê Sữa Đá",
             imageUrl: "/images/products/milk-coffee.jpg",
             size: "L",
-            toppings: ["Trân châu đen", "Sương sáo"],
+            toppings: ["pearl", "grass-jelly"],
             qty: 2,
             unitPrice: 29000,
             lineTotal: 58000,
@@ -203,7 +225,7 @@ async function main() {
             name: "Matcha Latte Thượng Hạng",
             imageUrl: "/images/products/matcha-latte.jpg",
             size: "M",
-            toppings: ["Kem Cheese"],
+            toppings: ["cheese-foam"],
             qty: 1,
             unitPrice: 45000,
             lineTotal: 45000,

@@ -3,8 +3,8 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
-  IsOptional,
   IsNotEmpty,
+  IsOptional,
   IsString,
   Min,
   ValidateNested,
@@ -17,14 +17,6 @@ export class CreateOrderItemDto {
 
   @IsString()
   @IsNotEmpty()
-  name: string;
-
-  @IsString()
-  @IsNotEmpty()
-  imageUrl: string;
-
-  @IsString()
-  @IsNotEmpty()
   size: string;
 
   @IsArray()
@@ -34,14 +26,6 @@ export class CreateOrderItemDto {
   @IsInt()
   @Min(1)
   qty: number;
-
-  @IsInt()
-  @Min(0)
-  unitPrice: number;
-
-  @IsInt()
-  @Min(0)
-  lineTotal: number;
 }
 
 export class CreateOrderDto {

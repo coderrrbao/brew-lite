@@ -1,24 +1,46 @@
-import type { CartItem, Order } from "../store";
+import type { Order } from "../store";
 import { getAccessToken } from "./auth";
 import { request } from "./client";
 
-export function createOrder(input: {
-  userId?: string;
-  items: CartItem[];
-  total: number;
-  promotionCode: string | undefined;
-  subtotal: number;
-  discount?: number;
-  idempotencyKey: string;
-}) {
-  return request<Order>("/orders", {
+export interface CreateOrderItemInput {
+  productId: string;
+  size: string;
+  toppings: string[];
+  qty: number;
+}
+
+export interface CreateOrderInput {
+  items: CreateOrderItemInput[];
+  promotionCode?: string;
+  pointsSpent?: number;
+  note?: string;
+}
+
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const token = getAccessToken();
+
+  if (!token) {
+    throw new Error("Bạn chưa đăng nhập.");
+  }
+
+  const row = await request<
+    Omit<Order, "createdAt"> & {
+      createdAt: string;
+      payments?: Order["payment"][];
+    }
+  >("/orders", {
     method: "POST",
     headers: {
-      Authorization: ["Bearer", getAccessToken() ?? ""].join(" "),
-      "Idempotency-Key": input.idempotencyKey,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(input),
   });
+
+  return {
+    ...row,
+    createdAt: new Date(row.createdAt),
+    payment: row.payments?.[0],
+  };
 }
 
 export async function getMyOrders(): Promise<Order[]> {
@@ -50,11 +72,9 @@ export async function getMyOrders(): Promise<Order[]> {
 
 export async function getOrderById(id: string): Promise<Order | undefined> {
   const orders = await getMyOrders();
-
-  if (!orders) return undefined;
-
   return orders.find((order) => order.id === id);
 }
+
 export async function getAllOrders(): Promise<Order[]> {
   const token = getAccessToken();
 

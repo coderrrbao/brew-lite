@@ -1,4 +1,5 @@
 ﻿import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -85,18 +86,81 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       );
     }
   }
+
   async create(dto: CreateOrderDto, userId?: string): Promise<OrderWithRelations> {
     return this.prisma.$transaction(async (tx) => {
+      // 1. Giữ tồn kho bằng optimistic locking trong ProductsService
       await this.products.reserveStock(tx, dto.items);
-      const subTotal = dto.items.reduce((sum, item) => sum + item.lineTotal, 0);
+
+      // 2. Truy vấn toàn bộ Product, SizeOption, Topping liên quan từ DB
+      const productIds = [...new Set(dto.items.map((i) => i.productId))];
+      const sizeValues = [...new Set(dto.items.map((i) => i.size))];
+      const toppingIds = [...new Set(dto.items.flatMap((i) => i.toppings))];
+
+      const [dbProducts, dbSizes, dbToppings] = await Promise.all([
+        tx.product.findMany({ where: { id: { in: productIds } } }),
+        tx.sizeOption.findMany({ where: { value: { in: sizeValues } } }),
+        tx.topping.findMany({
+          where: { id: { in: toppingIds }, active: true },
+        }),
+      ]);
+
+      const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+      const sizeMap = new Map(dbSizes.map((s) => [s.value, s]));
+      const toppingMap = new Map(dbToppings.map((t) => [t.id, t]));
+
+      // 3. Validate & tính lại đơn giá (unitPrice) + thành tiền (lineTotal) trên Server
+      const preparedItems = dto.items.map((item) => {
+        const product = productMap.get(item.productId);
+        if (!product || !product.active) {
+          throw new NotFoundException(
+            `Sản phẩm ${item.productId} không tồn tại hoặc đã ngừng bán.`,
+          );
+        }
+
+        const sizeOption = sizeMap.get(item.size);
+        if (!sizeOption) {
+          throw new BadRequestException(
+            `Kích cỡ "${item.size}" không hợp lệ.`,
+          );
+        }
+
+        const uniqueToppings = [...new Set(item.toppings)];
+        let toppingAdd = 0;
+        for (const tid of uniqueToppings) {
+          const topping = toppingMap.get(tid);
+          if (!topping) {
+            throw new BadRequestException(
+              `Topping "${tid}" không hợp lệ hoặc đã ngừng phục vụ.`,
+            );
+          }
+          toppingAdd += topping.price;
+        }
+
+        const unitPrice = product.price + sizeOption.priceAdd + toppingAdd;
+        const lineTotal = unitPrice * item.qty;
+
+        return {
+          productId: product.id,
+          name: product.name,
+          imageUrl: product.imageUrl,
+          size: sizeOption.value,
+          toppings: uniqueToppings,
+          qty: item.qty,
+          unitPrice,
+          lineTotal,
+        };
+      });
+
+      const subTotal = preparedItems.reduce((sum, i) => sum + i.lineTotal, 0);
+
+      // 4. Kiểm tra và tính giảm giá (nếu có mã khuyến mãi)
       let discountAmount = 0;
       let appliedCode: string | null = null;
       if (dto.promotionCode) {
         const promo = await this.promotion.validate(
           dto.promotionCode,
-          {
-            total: subTotal,
-          },
+          { total: subTotal },
           userId,
         );
 
@@ -106,24 +170,16 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
 
       const total = Math.max(0, subTotal - discountAmount);
 
+      // 5. Tạo đơn ở trạng thái PENDING với giá chuẩn từ DB
       return tx.order.create({
         data: {
           userId: userId ?? null,
-          promotionCode: appliedCode ?? null,
+          promotionCode: appliedCode,
           subTotal,
           discountAmount,
           total,
           items: {
-            create: dto.items.map((item) => ({
-              productId: item.productId,
-              name: item.name,
-              imageUrl: item.imageUrl,
-              size: item.size,
-              toppings: item.toppings,
-              qty: item.qty,
-              unitPrice: item.unitPrice,
-              lineTotal: item.lineTotal,
-            })),
+            create: preparedItems,
           },
         },
         include: { items: true },
@@ -138,23 +194,23 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       orderBy: { createdAt: "desc" },
     });
   }
-  
+
   async findAll() {
-  return this.prisma.order.findMany({
-    include: {
-      items: true,
-      user: {
-        select: {
-          name: true,
-          email: true,
+    return this.prisma.order.findMany({
+      include: {
+        items: true,
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
         },
       },
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-}
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
 
   async updateStatus(
     id: string,

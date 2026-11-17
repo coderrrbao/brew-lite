@@ -1,10 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { formatPrice, sizes, toppings as toppingDefs } from '@/lib/data';
+import { formatPrice } from '@/lib/data';
+import {
+  getSizes,
+  getToppings,
+  type SizeOption,
+  type Topping,
+} from '@/lib/api/products';
 import {
   PageShell,
   StickyBar,
@@ -24,6 +30,47 @@ export default function CartPage() {
   const { state, dispatch, cartTotal, cartCount } = useStore();
   const router = useRouter();
   const [note, setNote] = useState('');
+  const [showLoginToast, setShowLoginToast] = useState(false);
+  const [sizes, setSizes] = useState<SizeOption[]>([]);
+  const [toppingDefs, setToppingDefs] = useState<Topping[]>([]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOptions() {
+      try {
+        const [sizeList, toppingList] = await Promise.all([
+          getSizes(),
+          getToppings(),
+        ]);
+        if (!active) return;
+        setSizes(sizeList);
+        setToppingDefs(toppingList);
+      } catch (error) {
+        console.error('Không thể tải kích cỡ và topping:', error);
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const checkUserLogin = () => {
+    if (!state.user) return false;
+    return true;
+  };
+
+  const handleCheckout = () => {
+    if (!checkUserLogin()) {
+      setShowLoginToast(true);
+      return;
+    }
+
+    router.push('/checkout');
+  };
 
   if (state.cart.length === 0) {
     return (
@@ -150,7 +197,7 @@ export default function CartPage() {
               </div>
             </dl>
             <div className="mt-6 hidden md:block">
-              <button onClick={() => router.push('/checkout')} className={`${btnPrimary} h-14 w-full text-base`}>
+              <button onClick={handleCheckout} className={`${btnPrimary} h-14 w-full text-base`}>
                 Tiến hành thanh toán
               </button>
             </div>
@@ -160,12 +207,36 @@ export default function CartPage() {
 
       <div className="md:hidden">
         <StickyBar>
-          <button onClick={() => router.push('/checkout')} className={`${btnPrimary} h-14 w-full justify-between px-7 text-base`}>
+          <button onClick={handleCheckout} className={`${btnPrimary} h-14 w-full justify-between px-7 text-base`}>
             <span>Thanh toán</span>
             <span className="tabular">{formatPrice(cartTotal)}</span>
           </button>
         </StickyBar>
       </div>
+
+      {showLoginToast && (
+        <div
+          role="alert"
+          className="fixed bottom-24 left-1/2 z-50 flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-center gap-4 rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-lg md:bottom-6"
+        >
+          <p className="flex-1">Bạn cần đăng nhập để sử dụng chức năng này.</p>
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="shrink-0 font-semibold text-accent transition hover:text-accent/80"
+          >
+            Đăng nhập
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowLoginToast(false)}
+            aria-label="Đóng thông báo"
+            className="text-muted-foreground transition hover:text-foreground"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </PageShell>
   );
 }
