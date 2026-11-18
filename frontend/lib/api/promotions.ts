@@ -1,20 +1,34 @@
 import { request } from "./client";
 
 export interface PromotionValidation {
+  code?: string;
   isValid: boolean;
   discountAmount: number;
   totalAmount: number;
+  pointCost?: number;
 }
+
 export interface Promotions {
   code: string;
-  descriptions: string;
+  description?: string;
+  descriptions?: string;
   type: "PERCENTAGE" | "FIXED_AMOUNT";
   value: number;
-  minimumOrderAmount: number | 0;
-  maximumDiscountAmount?: number;
-  pointCost: number | 0;
+  minimumOrderAmount: number;
+  maximumDiscountAmount?: number | null;
+  pointCost: number;
   active: boolean;
-  expiresAt: Date;
+  expiresAt: string | Date | null;
+}
+
+export interface RedeemedVoucher extends Promotions {
+  redeemedAt: string | Date;
+  pointsSpent: number;
+}
+
+export interface PromotionsResponse {
+  promotions: Promotions[];
+  redeemedVouchers: RedeemedVoucher[];
 }
 
 export function validatePromotion(
@@ -28,7 +42,17 @@ export function validatePromotion(
   });
 }
 
-export function getPromotions(userId?: string): Promise<Promotions[]> {
+export function getPromotions(userId?: string): Promise<PromotionsResponse> {
   const query = userId ? `?userId=${encodeURIComponent(userId)}` : "";
-  return request<Promotions[]>(`/promotions${query}`);
+  return request<PromotionsResponse>(`/promotions${query}`);
+}
+
+export function redeemPromotion(code: string, userId?: string) {
+  return request<{ message: string; redeemedVoucher: RedeemedVoucher }>(
+    "/promotions/redeem",
+    {
+      method: "POST",
+      body: JSON.stringify({ code, userId }),
+    },
+  );
 }

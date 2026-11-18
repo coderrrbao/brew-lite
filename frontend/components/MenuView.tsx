@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatPrice, type Category, type Product } from "@/lib/data";
+import { formatPrice, type Category } from "@/lib/utils";
+import type { Product } from "@/lib/api/products";
 import { useStore } from "@/lib/store";
 import { PageShell, PlusIcon, Eyebrow } from "./ui";
 
@@ -123,11 +124,10 @@ export default function MenuView({ products }: { products: Product[] }) {
                   role="tab"
                   aria-selected={selected}
                   onClick={() => setActive(c.value)}
-                  className={`h-10 shrink-0 rounded-full border px-5 text-sm font-medium transition ${
-                    selected
+                  className={`h-10 shrink-0 rounded-full border px-5 text-sm font-medium transition ${selected
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-card text-foreground hover:bg-secondary"
-                  }`}
+                    }`}
                 >
                   {c.label}
                 </button>

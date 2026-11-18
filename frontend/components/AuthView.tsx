@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { getProductImageUrl } from '@/lib/data';
+import { getProductImageUrl } from '@/lib/utils';
 import { authenticate, clearAuthSession, logout } from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
 
@@ -12,6 +12,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -51,12 +52,20 @@ export default function AuthPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError('');
-    if (!email || !password || (mode === 'register' && !name)) {
+    if (
+      !email ||
+      !password ||
+      (mode === 'register' && (!name || !confirmPassword))
+    ) {
       setError('Vui lòng điền đầy đủ thông tin.');
       return;
     }
     if (mode === 'register' && password.length < 8) {
       setError('Mật khẩu phải có ít nhất 8 ký tự.');
+      return;
+    }
+    if (mode === 'register' && password !== confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp.');
       return;
     }
     setLoading(true);
@@ -105,9 +114,8 @@ export default function AuthPage() {
                 setMode(m);
                 setError('');
               }}
-              className={`h-10 rounded-full text-sm font-semibold transition ${
-                mode === m ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`h-10 rounded-full text-sm font-semibold transition ${mode === m ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               {m === 'login' ? 'Đăng nhập' : 'Đăng ký'}
             </button>
@@ -126,6 +134,17 @@ export default function AuthPage() {
             placeholder={isLogin ? 'Nhập mật khẩu' : 'Ít nhất 8 ký tự'}
             autoComplete={isLogin ? 'current-password' : 'new-password'}
           />
+          {!isLogin && (
+            <Field
+              id="confirm-password"
+              label="Xác nhận mật khẩu"
+              type="password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder="Nhập lại mật khẩu"
+              autoComplete="new-password"
+            />
+          )}
 
           {error && (
             <p role="alert" className="rounded-lg bg-[#f3d6d2] px-4 py-2.5 text-sm font-medium text-[#8a2a20]">
