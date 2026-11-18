@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { ValidatePromotionDto } from "./dto/validate-promotion.dto";
+import { RedeemPromotionDto } from "./dto/redeem-promotion.dto";
 import { PromotionsService } from "./promotions.service";
 import { OptionalJwtAuthGuard } from "../auth/optional-jwt-auth.guard";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -24,6 +25,15 @@ export class PromotionsController {
       dto.code,
       { total: dto.subtotal },
       user.sub,
+    );
+  }
+
+  @Post("redeem")
+  @UseGuards(JwtAuthGuard)
+  redeem(@Body() dto: RedeemPromotionDto, @CurrentUser() user: AuthUser) {
+    return this.promotions.redeemPromotion(
+      user.sub,
+      dto.code.trim().toUpperCase(),
     );
   }
 }

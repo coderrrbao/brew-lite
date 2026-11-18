@@ -37,26 +37,32 @@ export interface Payment {
   idempotencyKey: string;
   amount: number;
   method: string;
+  status?: "PAID" | "FAILED";
 }
 
 export interface Order {
   id: string;
-  userId: string;
   items: OrderItem[];
+  subTotal?: number;
+  discountAmount?: number;
   total: number;
-  promotionCode: string | undefined;
-  subtotal: number;
-  discount?: number;
   status:
     | "PENDING"
     | "PAID"
-    | "PAYMENT_FAILED"
     | "PREPARING"
     | "READY"
     | "COMPLETED"
+    | "PAYMENT_FAILED"
     | "CANCELLED";
+  promotionCode?: string | null;
+  pointsSpent?: number;
   createdAt: Date;
-  payment?: Payment;
+  payment?: {
+    id: string;
+    method: string;
+    amount: number;
+    status?: "PAID" | "FAILED";
+  };
 }
 
 export interface User {

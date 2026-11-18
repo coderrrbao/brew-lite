@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { formatPrice } from "@/lib/data";
+import { formatPrice } from "@/lib/utils";
 import {
   getSizes,
   getToppings,
@@ -133,8 +133,8 @@ export default function ProductView({ product }: { product: Product | null }) {
             {product.category === "hot"
               ? "Đồ uống nóng"
               : product.category === "cold"
-              ? "Đồ uống lạnh"
-              : "Món đặc biệt"}
+                ? "Đồ uống lạnh"
+                : "Món đặc biệt"}
           </Eyebrow>
           <h1 className="mt-3 text-4xl font-semibold sm:text-5xl">
             {product.name}
@@ -165,28 +165,25 @@ export default function ProductView({ product }: { product: Product | null }) {
                       role="radio"
                       aria-checked={on}
                       onClick={() => setSize(s.value)}
-                      className={`rounded-xl border px-3 py-3 text-center transition ${
-                        on
+                      className={`rounded-xl border px-3 py-3 text-center transition ${on
                           ? "border-primary bg-primary text-primary-foreground"
                           : "border-border bg-card hover:border-foreground/40"
-                      }`}
+                        }`}
                     >
                       <span className="block font-display text-xl font-semibold">
                         {s.value}
                       </span>
                       <span
-                        className={`block text-xs ${
-                          on
+                        className={`block text-xs ${on
                             ? "text-primary-foreground/80"
                             : "text-muted-foreground"
-                        }`}
+                          }`}
                       >
                         {s.label.replace(/\s*\(.*\)/, "")}
                       </span>
                       <span
-                        className={`tabular mt-1 block text-xs font-medium ${
-                          on ? "text-primary-foreground" : "text-accent"
-                        }`}
+                        className={`tabular mt-1 block text-xs font-medium ${on ? "text-primary-foreground" : "text-accent"
+                          }`}
                       >
                         {s.priceAdd > 0
                           ? `+${formatPrice(s.priceAdd)}`
@@ -214,18 +211,16 @@ export default function ProductView({ product }: { product: Product | null }) {
                       role="checkbox"
                       aria-checked={on}
                       onClick={() => toggle(t.id)}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${
-                        on
+                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3.5 text-left transition ${on
                           ? "border-accent bg-accent/5"
                           : "border-border bg-card hover:border-foreground/40"
-                      }`}
+                        }`}
                     >
                       <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
-                          on
+                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${on
                             ? "border-accent bg-accent text-accent-foreground"
                             : "border-border bg-background"
-                        }`}
+                          }`}
                       >
                         {on && <CheckIcon size={13} />}
                       </span>
@@ -252,9 +247,8 @@ export default function ProductView({ product }: { product: Product | null }) {
                 <button
                   onClick={addToCart}
                   disabled={loadingOptions}
-                  className={`${btnPrimary} h-14 w-full justify-between px-7 text-base ${
-                    added ? "bg-success hover:bg-success" : ""
-                  }`}
+                  className={`${btnPrimary} h-14 w-full justify-between px-7 text-base ${added ? "bg-success hover:bg-success" : ""
+                    }`}
                   aria-live="polite"
                 >
                   <span className="flex items-center gap-2">

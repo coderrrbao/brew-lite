@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
-import type { User } from "../generated/prisma/client";
+import type { Prisma, User } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
 const PUBLIC_USER_SELECT = {
@@ -80,19 +80,23 @@ export class UsersService {
     });
   }
 
-  async redeemLoyaltyPoints(id: string, cost: number) {
-    if (!Number.isSafeInteger(cost) || cost < 0) {
-      throw new BadRequestException("Số điểm không hợp lệ");
-    }
-    if (cost === 0) return;
-
-    const { count } = await this.prisma.user.updateMany({
-      where: { id, loyaltyPoints: { gte: cost } },
-      data: { loyaltyPoints: { decrement: cost } },
-    });
-
-    if (count === 0) {
-      throw new BadRequestException("Không đủ điểm");
-    }
+ async redeemLoyaltyPoints(
+  id: string,
+  cost: number,
+  tx: Prisma.TransactionClient = this.prisma,
+) {
+  if (!Number.isSafeInteger(cost) || cost < 0) {
+    throw new BadRequestException("Số điểm không hợp lệ");
   }
+  if (cost === 0) return;
+
+  const { count } = await tx.user.updateMany({
+    where: { id, loyaltyPoints: { gte: cost } },
+    data: { loyaltyPoints: { decrement: cost } },
+  });
+
+  if (count === 0) {
+    throw new BadRequestException("Không đủ điểm");
+  }
+}
 }

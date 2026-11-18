@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { getProductImageUrl } from '@/lib/data';
+import { getProductImageUrl } from '@/lib/utils';
 import { authenticate, clearAuthSession, logout } from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
 
@@ -114,9 +114,8 @@ export default function AuthPage() {
                 setMode(m);
                 setError('');
               }}
-              className={`h-10 rounded-full text-sm font-semibold transition ${
-                mode === m ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-              }`}
+              className={`h-10 rounded-full text-sm font-semibold transition ${mode === m ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                }`}
             >
               {m === 'login' ? 'Đăng nhập' : 'Đăng ký'}
             </button>

@@ -14,5 +14,9 @@
     "test:backend": "npm test --prefix backend",
     "prisma:generate": "npx prisma generate --schema=backend/prisma/schema.prisma",
     "prisma:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "dotenv": "^18.0.10",
+    "prisma": "^8.0.0-rc.34"
   }
 }

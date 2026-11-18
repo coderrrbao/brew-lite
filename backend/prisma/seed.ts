@@ -5,6 +5,7 @@ import { hash } from "bcryptjs";
 import {
   PrismaClient,
   ProductCategory,
+  UserRole,
   OrderStatus,
   PaymentStatus,
   PromotionType,
@@ -21,12 +22,14 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Bắt đầu xóa dữ liệu cũ...");
+  await prisma.voucherUsage.deleteMany();
+  await prisma.redeemedVoucher.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
   await prisma.product.deleteMany();
-  await prisma.user.deleteMany();
   await prisma.promotion.deleteMany();
+  await prisma.user.deleteMany();
   await prisma.sizeOption.deleteMany();
   await prisma.topping.deleteMany();
 
@@ -46,7 +49,12 @@ async function main() {
       { id: "white-pearl", label: "Trân châu trắng", price: 6000, active: true },
       { id: "grass-jelly", label: "Sương sáo", price: 5000, active: true },
       { id: "cheese-foam", label: "Kem Cheese", price: 10000, active: true },
-      { id: "espresso-shot", label: "Thêm 1 shot Espresso", price: 12000, active: true },
+      {
+        id: "espresso-shot",
+        label: "Thêm 1 shot Espresso",
+        price: 12000,
+        active: true,
+      },
     ],
   });
 
@@ -128,7 +136,8 @@ async function main() {
       name: "Nguyễn Hoài Bảo",
       email: "bao.nguyen@example.com",
       passwordHash,
-      loyaltyPoints: 120,
+      role: UserRole.CUSTOMER,
+      loyaltyPoints: 150,
     },
   });
 
@@ -137,7 +146,8 @@ async function main() {
       name: "Trần Thị Thu",
       email: "thu.tran@example.com",
       passwordHash,
-      loyaltyPoints: 50,
+      role: UserRole.CUSTOMER,
+      loyaltyPoints: 40,
     },
   });
 
@@ -146,20 +156,22 @@ async function main() {
       name: "Nhân viên Quầy",
       email: "staff@example.com",
       passwordHash,
-      role: "STAFF",
+      role: UserRole.STAFF,
     },
   });
 
   console.log("🎟️ Đang tạo Khuyến mãi...");
   await prisma.promotion.createMany({
     data: [
+      // Nhóm mã thường (pointCost = 0 -> không cần đổi điểm)
       {
         code: "WELCOME10",
-        description: "Giảm 10% cho đơn hàng đầu tiên",
+        description: "Giảm 10% cho đơn hàng từ 30k",
         type: PromotionType.PERCENTAGE,
         value: 10,
         minimumOrderAmount: 30000,
         maximumDiscountAmount: 20000,
+        pointCost: 0,
         active: true,
       },
       {
@@ -168,17 +180,78 @@ async function main() {
         type: PromotionType.FIXED_AMOUNT,
         value: 20000,
         minimumOrderAmount: 100000,
+        pointCost: 0,
+        active: true,
+      },
+      {
+        code: "USED15K",
+        description: "Mã ưu đãi 15k (user1 đã dùng)",
+        type: PromotionType.FIXED_AMOUNT,
+        value: 15000,
+        minimumOrderAmount: 50000,
+        pointCost: 0,
+        active: true,
+      },
+
+      // Nhóm mã đổi điểm (pointCost > 0)
+      {
+        code: "VIP30K",
+        description: "Giảm 30k cho đơn từ 70k",
+        type: PromotionType.FIXED_AMOUNT,
+        value: 30000,
+        minimumOrderAmount: 70000,
+        pointCost: 50,
+        active: true,
+      },
+      {
+        code: "VIP50K",
+        description: "Giảm 50k cho đơn từ 150k",
+        type: PromotionType.FIXED_AMOUNT,
+        value: 50000,
+        minimumOrderAmount: 150000,
+        pointCost: 100,
+        active: true,
+      },
+      {
+        code: "MEMBER20",
+        description: "Giảm 20% tối đa 40k (user1 đã đổi & đã dùng)",
+        type: PromotionType.PERCENTAGE,
+        value: 20,
+        minimumOrderAmount: 60000,
+        maximumDiscountAmount: 40000,
+        pointCost: 80,
         active: true,
       },
     ],
   });
 
-  console.log("🛒 Đang tạo Đơn hàng & Chi tiết...");
-  await prisma.order.create({
+  console.log("🎫 Đang tạo Ví mã đã đổi (RedeemedVoucher)...");
+  await prisma.redeemedVoucher.createMany({
+    data: [
+      // user1 đã đổi VIP30K và chưa dùng -> sẽ hiện ở nhóm "Mã của bạn"
+      {
+        userId: user1.id,
+        promotionCode: "VIP30K",
+        pointsSpent: 50,
+      },
+      // user1 đã đổi MEMBER20 và đã dùng ở order1 -> sẽ bị ẩn khỏi danh sách
+      {
+        userId: user1.id,
+        promotionCode: "MEMBER20",
+        pointsSpent: 80,
+      },
+    ],
+  });
+
+  console.log("🛒 Đang tạo Đơn hàng & Lịch sử dùng mã...");
+  const order1 = await prisma.order.create({
     data: {
       userId: user1.id,
-      total: 83000,
-      subTotal: 83000,
+      promotionCode: "MEMBER20",
+      pointsSpent: 0,
+      subTotal: 103000,
+      discountAmount: 20600,
+      total: 82400,
       status: OrderStatus.COMPLETED,
       items: {
         create: [
@@ -190,13 +263,13 @@ async function main() {
             toppings: ["pearl", "grass-jelly"],
             qty: 2,
             unitPrice: 29000,
-            lineTotal: 58000,
+            lineTotal: 78000,
           },
           {
             productId: "prod-cf-black",
             name: "Cà Phê Đen Đá",
             imageUrl: imgCfBlack,
-            size: "M",
+            size: "S",
             toppings: [],
             qty: 1,
             unitPrice: 25000,
@@ -207,8 +280,43 @@ async function main() {
       payments: {
         create: {
           idempotencyKey: "PAY-KEY-001",
-          amount: 83000,
+          amount: 82400,
           method: "MOMO",
+          status: PaymentStatus.PAID,
+        },
+      },
+    },
+  });
+
+  const order2 = await prisma.order.create({
+    data: {
+      userId: user1.id,
+      promotionCode: "USED15K",
+      pointsSpent: 0,
+      subTotal: 64000,
+      discountAmount: 15000,
+      total: 49000,
+      status: OrderStatus.COMPLETED,
+      items: {
+        create: [
+          {
+            productId: "prod-peach-tea",
+            name: "Trà Đào Cam Sả",
+            imageUrl:
+              "https://images.unsplash.com/photo-1731047005879-f0a56f73fd8d?q=80&w=687&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+            size: "L",
+            toppings: ["white-pearl"],
+            qty: 1,
+            unitPrice: 39000,
+            lineTotal: 64000,
+          },
+        ],
+      },
+      payments: {
+        create: {
+          idempotencyKey: "PAY-KEY-002",
+          amount: 49000,
+          method: "ZALOPAY",
           status: PaymentStatus.PAID,
         },
       },
@@ -218,8 +326,8 @@ async function main() {
   await prisma.order.create({
     data: {
       userId: user2.id,
-      total: 45000,
-      subTotal: 45000,
+      subTotal: 55000,
+      total: 55000,
       status: OrderStatus.PREPARING,
       items: {
         create: [
@@ -227,23 +335,41 @@ async function main() {
             productId: "prod-matcha-latte",
             name: "Matcha Latte Thượng Hạng",
             imageUrl: imgMatcha,
-            size: "M",
+            size: "S",
             toppings: ["cheese-foam"],
             qty: 1,
             unitPrice: 45000,
-            lineTotal: 45000,
+            lineTotal: 55000,
           },
         ],
       },
       payments: {
         create: {
-          idempotencyKey: "PAY-KEY-002",
-          amount: 45000,
+          idempotencyKey: "PAY-KEY-003",
+          amount: 55000,
           method: "BANK_TRANSFER",
           status: PaymentStatus.PAID,
         },
       },
     },
+  });
+
+  // Ghi nhận lịch sử sử dụng mã của user1
+  await prisma.voucherUsage.createMany({
+    data: [
+      {
+        userId: user1.id,
+        promotionCode: "MEMBER20",
+        orderId: order1.id,
+        discountAmount: 20600,
+      },
+      {
+        userId: user1.id,
+        promotionCode: "USED15K",
+        orderId: order2.id,
+        discountAmount: 15000,
+      },
+    ],
   });
 
   console.log("✅ Chèn dữ liệu mẫu thành công!");

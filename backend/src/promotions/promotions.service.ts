@@ -6,43 +6,143 @@ import {
 import { PrismaService } from "../prisma/prisma.service";
 import {
   Order,
-  OrderStatus,
+  Prisma,
   Promotion,
   PromotionType,
 } from "../generated/prisma/client";
-import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class PromotionsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly userService: UsersService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(userId?: string): Promise<Promotion[]> {
-    if (!userId) return [];
+async findAll(userId?: string) {
+    const now = new Date();
+    const activeFilter: Prisma.PromotionWhereInput = {
+      active: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    };
 
-    const usedOrders = await this.prisma.order.findMany({
-      where: {
-        userId,
-        promotionCode: { not: null },
-        status: { notIn: [OrderStatus.PAYMENT_FAILED, OrderStatus.CANCELLED] },
-      },
-      select: { promotionCode: true },
-      distinct: ["promotionCode"],
+    if (!userId) {
+      const promotions = await this.prisma.promotion.findMany({
+        where: activeFilter,
+        orderBy: { createdAt: "desc" },
+      });
+
+      return {
+        promotions,
+        redeemedVouchers: [],
+      };
+    }
+
+    const [activePromotions, redeemedList, usedList] = await Promise.all([
+      this.prisma.promotion.findMany({
+        where: activeFilter,
+        orderBy: { createdAt: "desc" },
+      }),
+      this.prisma.redeemedVoucher.findMany({
+        where: {
+          userId,
+          promotion: activeFilter,
+        },
+        include: { promotion: true },
+        orderBy: { redeemedAt: "desc" },
+      }),
+      this.prisma.voucherUsage.findMany({
+        where: { userId },
+        select: { promotionCode: true },
+      }),
+    ]);
+
+    const usedCodes = new Set(usedList.map((u) => u.promotionCode));
+
+  
+    const promotions = activePromotions.filter((p) => !usedCodes.has(p.code));
+
+    // 2. Tập mã user đã đổi còn hạn (đã loại mã user đã dùng), kèm full thông tin promotion
+    const redeemedVouchers = redeemedList
+      .filter((r) => !usedCodes.has(r.promotionCode))
+      .map((r) => ({
+        ...r.promotion,
+        redeemedAt: r.redeemedAt,
+        pointsSpent: r.pointsSpent,
+      }));
+
+    return {
+      promotions,
+      redeemedVouchers,
+    };
+  }
+
+
+  
+  /**
+   * Đổi điểm lấy mã giảm giá -> Lưu vào bảng RedeemedVoucher
+   */
+  async redeemPromotion(userId: string, promotionCode: string) {
+    const promotion = await this.prisma.promotion.findUnique({
+      where: { code: promotionCode },
     });
 
-    const usedCodes = usedOrders.map((o) => o.promotionCode as string);
+    if (!promotion) throw new NotFoundException("Không tìm thấy mã giảm giá");
+    if (!promotion.active) {
+      throw new BadRequestException("Mã giảm giá không còn hiệu lực");
+    }
+    if (promotion.expiresAt != null && promotion.expiresAt <= new Date()) {
+      throw new BadRequestException("Mã giảm giá đã hết hạn");
+    }
+    if (promotion.pointCost <= 0) {
+      throw new BadRequestException("Mã này miễn phí, không cần đổi điểm");
+    }
 
-    return this.prisma.promotion.findMany({
-      where: {
-        active: true,
-        OR: [{ expiresAt: { gt: new Date() } }, { expiresAt: null }],
-        code: { notIn: usedCodes },
-      },
+    const [alreadyUsed, alreadyRedeemed] = await Promise.all([
+      this.prisma.voucherUsage.findFirst({
+        where: { userId, promotionCode },
+      }),
+      this.prisma.redeemedVoucher.findUnique({
+        where: { userId_promotionCode: { userId, promotionCode } },
+      }),
+    ]);
+
+    if (alreadyUsed) {
+      throw new BadRequestException("Bạn đã sử dụng mã giảm giá này rồi");
+    }
+    if (alreadyRedeemed) {
+      throw new BadRequestException(
+        "Bạn đã đổi mã này rồi, hãy dùng khi thanh toán",
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, loyaltyPoints: { gte: promotion.pointCost } },
+        data: { loyaltyPoints: { decrement: promotion.pointCost } },
+      });
+
+      if (count === 0) {
+        throw new BadRequestException(
+          `Bạn không đủ ${promotion.pointCost} điểm để đổi mã này`,
+        );
+      }
+
+      const redeemedVoucher = await tx.redeemedVoucher.create({
+        data: {
+          userId,
+          promotionCode: promotion.code,
+          pointsSpent: promotion.pointCost,
+        },
+        include: { promotion: true },
+      });
+
+      return {
+        message: "Đổi mã giảm giá thành công",
+        redeemedVoucher,
+      };
     });
   }
 
+  /**
+   * Kiểm tra và tính toán
+   */
   async validate(
     promotionCode: string,
     order: Pick<Order, "total">,
@@ -52,7 +152,7 @@ export class PromotionsService {
     isValid: boolean;
     discountAmount: number;
     totalAmount: number;
-    pointCost: number | null;
+    pointCost: number;
   }> {
     const promotion = await this.prisma.promotion.findUnique({
       where: { code: promotionCode },
@@ -61,82 +161,49 @@ export class PromotionsService {
     if (!promotion.active) {
       throw new BadRequestException("Mã giảm giá không còn hiệu lực");
     }
-    if (promotion.expiresAt != null && promotion.expiresAt < new Date()) {
-      throw new BadRequestException("Mã giảm giá hết hạn");
+    if (promotion.expiresAt != null && promotion.expiresAt <= new Date()) {
+      throw new BadRequestException("Mã giảm giá đã hết hạn");
     }
 
-    const pointCost = promotion.pointCost ?? 0;
+    // 1. Check đã dùng chưa (VoucherUsage)
+    if (userId) {
+      const usedCount = await this.prisma.voucherUsage.count({
+        where: { userId, promotionCode },
+      });
+      if (usedCount > 0) {
+        throw new BadRequestException("Bạn đã sử dụng mã giảm giá này rồi");
+      }
+    }
 
-    if (pointCost > 0) {
+    // 2. Nếu là mã đổi điểm -> Check đã đổi chưa (RedeemedVoucher)
+    if (promotion.pointCost > 0) {
       if (!userId) {
         throw new BadRequestException("Vui lòng đăng nhập để dùng mã đổi điểm");
       }
 
-      const { loyaltyPoints } = await this.userService.getLoyaltyPoints(userId);
-
-      if (pointCost > loyaltyPoints) {
-        throw new BadRequestException(
-          `Bạn cần ${pointCost} điểm để dùng mã này (hiện có ${loyaltyPoints} điểm)`,
-        );
-      }
-    }
-
-    if (userId) {
-      const usedCount = await this.prisma.order.count({
-        where: {
-          userId,
-          promotionCode,
-          status: { notIn: [OrderStatus.PAYMENT_FAILED, OrderStatus.CANCELLED] },
-        },
+      const redeemed = await this.prisma.redeemedVoucher.findUnique({
+        where: { userId_promotionCode: { userId, promotionCode } },
       });
 
-      if (usedCount > 0) {
-        throw new BadRequestException("Bạn đã sử dụng mã này rồi");
-      }
-    }
-
-    function caculationDiscount(
-      promotion: Promotion,
-      order: Pick<Order, "total">,
-    ) {
-      const discountValue = promotion.value;
-      const typePromotion = promotion.type;
-
-      let totalDiscount: number;
-
-      if (typePromotion === PromotionType.PERCENTAGE) {
-        totalDiscount = Math.floor((order.total * discountValue) / 100);
-      } else if (typePromotion === PromotionType.FIXED_AMOUNT) {
-        totalDiscount = discountValue;
-      } else {
-        throw new BadRequestException("Kiểu giảm giá không hợp lệ");
-      }
-
-      if (promotion.maximumDiscountAmount != null) {
-        totalDiscount = Math.min(
-          promotion.maximumDiscountAmount,
-          totalDiscount,
+      if (!redeemed) {
+        throw new BadRequestException(
+          `Bạn cần đổi ${promotion.pointCost} điểm để nhận mã này trước khi áp dụng`,
         );
       }
-
-      let totalAmount = order.total - totalDiscount;
-      if (totalAmount < 0) totalAmount = 0;
-      return { discountAmount: totalDiscount, totalAmount };
     }
 
-    if (
-      promotion.minimumOrderAmount != null &&
-      order.total < promotion.minimumOrderAmount
-    ) {
+    // 3. Check giá trị đơn tối thiểu
+    if (order.total < promotion.minimumOrderAmount) {
       throw new BadRequestException(
         `Đơn hàng tối thiểu ${promotion.minimumOrderAmount.toLocaleString("vi-VN")}đ để dùng mã này`,
       );
     }
 
-    const { discountAmount, totalAmount } = caculationDiscount(
+    const { discountAmount, totalAmount } = this.calculateDiscount(
       promotion,
       order,
     );
+
     return {
       isValid: true,
       discountAmount,
@@ -144,5 +211,53 @@ export class PromotionsService {
       code: promotion.code,
       pointCost: promotion.pointCost,
     };
+  }
+
+
+  // lưu mgg sử dụng vào db
+  async recordVoucherUsage(
+    params: {
+      userId: string;
+      promotionCode: string;
+      orderId: string;
+      discountAmount: number;
+    },
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    await tx.voucherUsage.create({
+      data: params,
+    });
+  }
+
+  // hoàn lại mgg cho user
+  async rollbackVoucherUsage(
+    orderId: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    await tx.voucherUsage.deleteMany({
+      where: { orderId },
+    });
+  }
+
+  private calculateDiscount(
+    promotion: Promotion,
+    order: Pick<Order, "total">,
+  ) {
+    let totalDiscount: number;
+
+    if (promotion.type === PromotionType.PERCENTAGE) {
+      totalDiscount = Math.floor((order.total * promotion.value) / 100);
+    } else if (promotion.type === PromotionType.FIXED_AMOUNT) {
+      totalDiscount = promotion.value;
+    } else {
+      throw new BadRequestException("Kiểu giảm giá không hợp lệ");
+    }
+
+    if (promotion.maximumDiscountAmount != null) {
+      totalDiscount = Math.min(promotion.maximumDiscountAmount, totalDiscount);
+    }
+
+    const totalAmount = Math.max(0, order.total - totalDiscount);
+    return { discountAmount: totalDiscount, totalAmount };
   }
 }

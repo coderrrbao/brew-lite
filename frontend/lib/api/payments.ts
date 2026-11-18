@@ -33,6 +33,7 @@ export function confirmPayment(input: {
 }) {
   return request<{
     order: Order;
+    payment: Payment;
   }>(`/payments/${input.orderId}/confirm`, {
     method: "POST",
     headers: {

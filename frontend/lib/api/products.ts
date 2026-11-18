@@ -1,4 +1,4 @@
-import type { Category } from '../data';
+import type { Category } from '../utils';
 import { ApiError, request } from './client';
 
 export interface Product {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/lib/store';
-import { formatPrice } from '@/lib/data';
+import { formatPrice } from '@/lib/utils';
 import {
   getSizes,
   getToppings,
@@ -29,6 +29,7 @@ import {
 export default function CartPage() {
   const { state, dispatch, cartTotal, cartCount } = useStore();
   const router = useRouter();
+
   const [note, setNote] = useState('');
   const [showLoginToast, setShowLoginToast] = useState(false);
   const [sizes, setSizes] = useState<SizeOption[]>([]);
@@ -97,6 +98,7 @@ export default function CartPage() {
       >
         <ArrowLeftIcon size={16} /> Chọn thêm đồ uống
       </Link>
+
       <div className="mt-5 flex items-baseline justify-between">
         <h1 className="text-4xl font-semibold">Giỏ hàng</h1>
         <span className="text-sm text-muted-foreground">{cartCount} món</span>
