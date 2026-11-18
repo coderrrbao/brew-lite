@@ -3,8 +3,6 @@
   ConflictException,
   Injectable,
   NotFoundException,
-  OnModuleInit,
-  OnModuleDestroy,
 } from "@nestjs/common";
 import type { Order, OrderItem, OrderStatus } from "../generated/prisma/client";
 import { CreateOrderDto } from "./dto/create-order.dto";
@@ -27,57 +25,12 @@ const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
 };
 
 @Injectable()
-export class OrdersService implements OnModuleInit, OnModuleDestroy {
-  private readonly processingOrders = new Set<string>();
-  private scanTimer?: ReturnType<typeof setInterval>;
-  private scanning = false;
-
+export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly products: ProductsService,
     private readonly promotion: PromotionsService,
   ) {}
-
-  onModuleInit() {
-    this.scanTimer = setInterval(() => {
-      void this.scanPaidOrders();
-    }, 2500);
-  }
-
-  onModuleDestroy() {
-    if (this.scanTimer) {
-      clearInterval(this.scanTimer);
-    }
-  }
-
-  private async scanPaidOrders(): Promise<void> {
-    if (this.scanning) return;
-
-    this.scanning = true;
-
-    try {
-      const orders = await this.prisma.order.findMany({
-        where: { status: "PAID" },
-        select: { id: true },
-      });
-
-      for (const order of orders) {
-        if (this.processingOrders.has(order.id)) continue;
-
-        this.processingOrders.add(order.id);
-
-        void this.autoProgressOrder(order.id)
-          .catch(() => {})
-          .finally(() => {
-            this.processingOrders.delete(order.id);
-          });
-      }
-    } catch {
-      // Bỏ qua lỗi quét đơn hàng
-    } finally {
-      this.scanning = false;
-    }
-  }
 
   assertTransition(from: OrderStatus, to: OrderStatus): void {
     if (!allowedOrderTransitions[from].includes(to)) {
@@ -252,7 +205,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       });
       for (const item of orderItems) {
         await this.prisma.product.update({
-          where: { id: item.productId as string},
+          where: { id: item.productId as string },
           data: { stock: { increment: item.qty } },
         }).catch(() => {});
       }
@@ -264,6 +217,7 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  // Dành cho Staff: PAID -> PREPARING -> READY -> COMPLETED
   async updateStatus(
     id: string,
     status: OrderStatus,
@@ -290,46 +244,5 @@ export class OrdersService implements OnModuleInit, OnModuleDestroy {
       where: { id },
       include: { items: true },
     });
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  async autoProgressOrder(orderId: string): Promise<void> {
-    const statuses = [
-      "PREPARING",
-      "READY",
-      "COMPLETED",
-    ] as const;
-
-    for (const status of statuses) {
-      await this.sleep(2500);
-
-      const order = await this.prisma.order.findUnique({
-        where: { id: orderId },
-      });
-
-      if (!order) return;
-
-      const expectedStatus =
-        status === "PREPARING"
-          ? "PAID"
-          : status === "READY"
-            ? "PREPARING"
-            : "READY";
-
-      if (order.status !== expectedStatus) return;
-
-      const result = await this.prisma.order.updateMany({
-        where: {
-          id: orderId,
-          status: expectedStatus,
-        },
-        data: { status },
-      });
-
-      if (result.count === 0) return;
-    }
   }
 }
