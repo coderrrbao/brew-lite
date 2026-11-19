@@ -1,15 +1,14 @@
-name: BrewLite CI
+name: BrewLite CD (Deploy to Production)
 
 on:
   push:
-    branches: ['**']
-  pull_request:
+    branches: ['main']
 
 permissions:
   contents: read
 
 jobs:
-  backend:
+  backend-checks:
     name: Backend quality checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -69,7 +68,8 @@ jobs:
         working-directory: backend
         run: npm run build
 
-  frontend:
+
+  frontend-checks:
     name: Frontend quality checks
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -91,3 +91,48 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+
+  # 3. Job Deploy (Chỉ chạy khi 2 job trên PASS)
+  deploy:
+    name: Deploy to Supabase, Render & Vercel
+    needs: [backend-checks, frontend-checks]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: rm -f package-lock.json && npm install
+
+      # Bước 3.1: Chạy Prisma Migration lên Supabase thật
+      - name: Run Prisma Migration (Supabase DB)
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      # Bước 3.2: Trigger Render Deploy Backend
+      - name: Trigger Render Deploy (Backend)
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      # Bước 3.3: Triển khai Frontend lên Vercel
+      - name: Deploy Frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'
+
+      # Bước 3.4: Smoke test kiểm tra trạng thái dịch vụ sau khi deploy
+      - name: Smoke Test APIs
+        run: |
+          sleep 20
+          curl -f ${{ secrets.RENDER_BACKEND_URL }}/products

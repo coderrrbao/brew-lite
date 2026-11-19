@@ -33,11 +33,13 @@ const statusConfig: Record<Order["status"], { label: string; cls: string }> = {
 
 export default function OrdersPage() {
   const { state, dispatch } = useStore();
-  const [orders, setOrders] = useState<Order[]>(state.orders || []);
+  // Dùng trực tiếp state.orders từ Store hoặc local state để tránh lưu 2 nơi
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+
+  const orders = state.orders || [];
 
   async function loadOrders() {
     setLoading(true);
@@ -49,8 +51,7 @@ export default function OrdersPage() {
         throw new Error("Không thể tải lịch sử đơn hàng.");
       }
 
-      setOrders(result);
-
+      // Chỉ cần dispatch vào Store, React sẽ tự re-render component theo state.orders
       dispatch({
         type: "SET_ORDERS",
         orders: result,
@@ -61,7 +62,7 @@ export default function OrdersPage() {
           ? reason.message
           : "Không tải được lịch sử đơn hàng.",
       );
-      setOrders([]);
+      dispatch({ type: "SET_ORDERS", orders: [] });
     } finally {
       setLoading(false);
     }
@@ -75,7 +76,6 @@ export default function OrdersPage() {
       const nextOrders = orders.map((o) =>
         o.id === orderId ? { ...o, status: updated.status } : o,
       );
-      setOrders(nextOrders);
       dispatch({ type: "SET_ORDERS", orders: nextOrders });
     } catch (reason) {
       alert(
