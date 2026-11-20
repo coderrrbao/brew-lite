@@ -70,7 +70,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
           DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-        run: npx prisma migrate deploy
+        run: | 
+          npx prisma migrate deploy
+          npx prisma db seed
 
       # 2.2 Trigger Render Deploy Backend
       - name: 🚀 Trigger Render Backend Deploy
