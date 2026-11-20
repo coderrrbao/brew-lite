@@ -1,0 +1,54 @@
+name: BrewLite CD (Deploy to Cloud)
+
+on:
+  push:
+    branches: ['main']
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # Bước 1: Quality Gates (Tái sử dụng kiểm thử từ CI)
+  backend-checks:
+    # Chạy unit & integration test với postgres container local...
+  
+  frontend-checks:
+    # Chạy lint & build frontend...
+
+  # Bước 2: Deploy tự động (Chỉ chạy khi 2 job trên SUCCESS)
+  deploy:
+    needs: [backend-checks, frontend-checks]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 2.1 Safe Database Migration lên Supabase
+      - name: Run Prisma Migration on Supabase DB
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+        run: npx prisma migrate deploy
+
+      # 2.2 Trigger Render Deploy Backend (Kích hoạt Webhook)
+      - name: Trigger Render Deploy (Backend)
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+
+      # 2.3 Deploy Frontend lên Vercel
+      - name: Deploy Frontend to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./frontend
+          vercel-args: '--prod'
+
+      # 2.4 Smoke Test sau triển khai
+      - name: Smoke Test Production Health
+        run: |
+          sleep 20
+          curl -fsS ${{ secrets.RENDER_BACKEND_URL }}/products > /dev/null

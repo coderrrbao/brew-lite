@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrewLite – Màn hình nhân viên (demo)</title>
+<style>
+  :root {
+    --bg:#f3f5f4; --card:#fff; --ink:#1b2421; --muted:#66726d; --line:#dde3e0;
+    --accent:#0f6b5c; --accent-ink:#fff; --danger:#a63a2b;
+    --s-pending:#8a6d1c; --s-paid:#1d5fa8; --s-prep:#a45a0a; --s-ready:#0f6b5c; --s-done:#55605b; --s-bad:#a63a2b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#131816; --card:#1b2220; --ink:#e8eeeb; --muted:#93a19b; --line:#2b3531; --accent:#3fb59f; --accent-ink:#08201b; --danger:#e07b6b;
+      --s-pending:#d9b44a; --s-paid:#6aa6ec; --s-prep:#e8a04f; --s-ready:#3fb59f; --s-done:#93a19b; --s-bad:#e07b6b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  button, input { font:inherit; color:inherit; }
+  header { display:flex; align-items:center; gap:12px; padding:14px 20px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; font-weight:650; }
+  .spacer { flex:1; }
+  .live { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+  .dot.on { background:var(--accent); animation:pulse 1.4s ease-in-out infinite; }
+  .dot.err { background:var(--danger); animation:none; }
+  @keyframes pulse { 50% { opacity:.3; } }
+  @media (prefers-reduced-motion: reduce) { .dot.on { animation:none; } }
+  .btn { border:1px solid var(--line); background:var(--card); border-radius:8px; padding:7px 14px; cursor:pointer; }
+  .btn:hover:not(:disabled) { border-color:var(--ink); }
+  .btn.primary { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); font-weight:600; }
+  .btn.danger { color:var(--danger); border-color:var(--danger); background:transparent; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  main { max-width:960px; margin:0 auto; padding:20px; }
+  .login { max-width:380px; margin:12vh auto 0; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  .login h2 { margin:0 0 4px; font-size:22px; }
+  .login p { margin:0 0 18px; color:var(--muted); font-size:14px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input { width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px; background:var(--bg); }
+  .login .btn { width:100%; margin-top:18px; padding:10px; }
+  .msg { margin-top:12px; font-size:14px; color:var(--danger); min-height:20px; }
+  .filters { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .chip { border:1px solid var(--line); background:var(--card); border-radius:999px; padding:5px 13px; cursor:pointer; font-size:13px; }
+  .chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .order { background:var(--card); border:1px solid var(--line); border-left:4px solid var(--c,var(--line)); border-radius:10px; padding:14px 16px; margin-bottom:12px; display:grid; grid-template-columns:1fr auto; gap:10px 16px; }
+  .order .top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .oid { font-weight:650; font-variant-numeric:tabular-nums; }
+  .badge { font-size:12px; font-weight:600; color:var(--c); border:1px solid var(--c); border-radius:999px; padding:1px 9px; }
+  .meta { color:var(--muted); font-size:13px; }
+  .items { margin:6px 0 0; padding:0; list-style:none; font-size:14px; }
+  .total { font-weight:650; font-variant-numeric:tabular-nums; text-align:right; }
+  .actions { grid-column:1 / -1; display:flex; gap:8px; justify-content:flex-end; }
+  .empty { text-align:center; color:var(--muted); padding:48px 0; }
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:8px; font-size:14px; max-width:90vw; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>BrewLite · Nhân viên</h1>
+  <span class="spacer"></span>
+  <div id="live" class="live" hidden><span class="dot" id="dot"></span><span id="liveText">Đang kết nối…</span></div>
+  <button class="btn" id="toggle" hidden>Tạm dừng</button>
+  <button class="btn" id="logout" hidden>Đăng xuất</button>
+</header>
+
+<main>
+  <section id="loginView" class="login">
+    <h2>Đăng nhập nhân viên</h2>
+    <p>Dùng tài khoản có vai trò STAFF để xem và xử lý đơn.</p>
+    <form id="loginForm">
+      <label for="api">Địa chỉ API</label>
+      <input id="api" value="http://localhost:4000" autocomplete="off">
+      <label for="email">Email</label>
+      <input id="email" type="email" value="staff@example.com" autocomplete="username" required>
+      <label for="password">Mật khẩu</label>
+      <input id="password" type="password" value="matkhau123" autocomplete="current-password" required>
+      <button class="btn primary" id="loginBtn" type="submit">Đăng nhập</button>
+      <div class="msg" id="loginMsg" role="alert"></div>
+    </form>
+  </section>
+
+  <section id="boardView" hidden>
+    <div class="filters" id="filters" role="group" aria-label="Lọc đơn theo trạng thái"></div>
+    <div id="list"></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+const POLL_MS = 2000;
+const KEY = 'staffdemo_session'; // khác khóa của app chính nên không đè phiên khách hàng
+
+const STATUS = {
+  PENDING:        { label:'Chờ thanh toán',     color:'var(--s-pending)' },
+  PAYMENT_FAILED: { label:'Thanh toán thất bại', color:'var(--s-bad)' },
+  PAID:           { label:'Đã thanh toán',      color:'var(--s-paid)' },
+  PREPARING:      { label:'Đang pha chế',       color:'var(--s-prep)' },
+  READY:          { label:'Sẵn sàng',           color:'var(--s-ready)' },
+  COMPLETED:      { label:'Hoàn thành',         color:'var(--s-done)' },
+  CANCELLED:      { label:'Đã hủy',             color:'var(--s-done)' },
+};
+// Đúng theo allowedOrderTransitions ở backend
+const NEXT = {
+  PAID:      { to:'PREPARING', label:'Bắt đầu pha chế' },
+  PREPARING: { to:'READY',     label:'Đã pha xong' },
+  READY:     { to:'COMPLETED', label:'Giao khách' },
+};
+const CANCELLABLE = ['PENDING', 'PAID', 'PAYMENT_FAILED'];
+const FILTERS = [
+  { id:'all',    label:'Tất cả',      match:() => true },
+  { id:'active', label:'Đang xử lý',  match:s => ['PAID','PREPARING','READY'].includes(s) },
+  { id:'wait',   label:'Chờ thanh toán', match:s => ['PENDING','PAYMENT_FAILED'].includes(s) },
+  { id:'done',   label:'Đã đóng',     match:s => ['COMPLETED','CANCELLED'].includes(s) },
+];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => new Intl.NumberFormat('vi-VN').format(n) + ' ₫';
+
+let session = null, orders = [], filter = 'active', paused = false;
+let timer = null, failures = 0, polling = false;
+const busy = new Set();
+
+// ---------- API ----------
+class ApiError extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+
+async function call(path, { method = 'GET', body, auth = true } = {}) {
+  const res = await fetch(session.api + path, {
+    method,
+    headers: { 'Content-Type':'application/json', ...(auth ? { Authorization:'Bearer ' + session.accessToken } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store',
+    signal: AbortSignal.timeout(4000),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => null);
+    const m = j?.message;
+    throw new ApiError(res.status, Array.isArray(m) ? m.join(' ') : (m || 'Lỗi ' + res.status));
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function authed(path, opts) {
+  try { return await call(path, opts); }
+  catch (e) {
+    if (e.status !== 401 || !session.refreshToken) throw e;
+    const t = await call('/auth/refresh', { method:'POST', auth:false, body:{ refreshToken: session.refreshToken } });
+    session.accessToken = t.accessToken; session.refreshToken = t.refreshToken; save();
+    return call(path, opts);
+  }
+}
+
+const save = () => localStorage.setItem(KEY, JSON.stringify(session));
+
+// ---------- Đăng nhập ----------
+$('loginForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('loginBtn'), msg = $('loginMsg');
+  msg.textContent = ''; btn.disabled = true;
+  session = { api: $('api').value.trim().replace(/\/+$/, '') };
+  try {
+    const r = await call('/auth/login', { method:'POST', auth:false, body:{ email:$('email').value, password:$('password').value } });
+    if (r.user?.role !== 'STAFF') throw new Error('Tài khoản này không phải nhân viên (STAFF).');
+    session = { ...session, accessToken:r.accessToken, refreshToken:r.refreshToken, name:r.user.name || r.user.email };
+    save(); enterBoard();
+  } catch (err) {
+    session = null;
+    msg.textContent = err.name === 'TypeError' || err.name === 'TimeoutError'
+      ? 'Không kết nối được API. Kiểm tra backend và CORS (xem hướng dẫn mở file).'
+      : err.message;
+  } finally { btn.disabled = false; }
+});
+
+function logout() {
+  clearTimeout(timer); timer = null; polling = false;
+  if (session?.refreshToken) call('/auth/logout', { method:'POST', auth:false, body:{ refreshToken:session.refreshToken } }).catch(() => {});
+  localStorage.removeItem(KEY); session = null; orders = [];
+  for (const id of ['boardView','live','toggle','logout']) $(id).hidden = true;
+  $('loginView').hidden = false;
+}
+$('logout').addEventListener('click', logout);
+
+// ---------- Polling liên tục ----------
+function enterBoard() {
+  $('loginView').hidden = true;
+  for (const id of ['boardView','live','toggle','logout']) $(id).hidden = false;
+  renderFilters(); schedule(0);
+}
+
+function schedule(ms) { clearTimeout(timer); timer = setTimeout(poll, ms); }
+
+async function poll() {
+  if (!session || polling) return;
+  if (paused) return schedule(POLL_MS);
+  polling = true;
+  try {
+    orders = await authed('/orders/staff');
+    failures = 0;
+    setLive('ok', 'Cập nhật ' + new Date().toLocaleTimeString('vi-VN'));
+    render();
+  } catch (e) {
+    if (e.status === 401 || e.status === 403) {
+      logout(); $('loginMsg').textContent = e.status === 403 ? 'Cần quyền nhân viên (STAFF).' : 'Phiên đăng nhập đã hết hạn.';
+      return;
+    }
+    failures++;
+    setLive('err', 'Mất kết nối, đang thử lại…');
+  } finally { polling = false; }
+  if (session) schedule(POLL_MS * 2 ** Math.min(failures, 3)); // chờ request xong mới hẹn lượt sau, lỗi thì giãn dần
+}
+
+function setLive(state, text) {
+  $('dot').className = 'dot ' + (state === 'ok' ? 'on' : 'err');
+  $('liveText').textContent = paused ? 'Đã tạm dừng' : text;
+}
+$('toggle').addEventListener('click', () => {
+  paused = !paused;
+  $('toggle').textContent = paused ? 'Tiếp tục' : 'Tạm dừng';
+  $('dot').className = 'dot' + (paused ? '' : ' on');
+  $('liveText').textContent = paused ? 'Đã tạm dừng' : 'Đang cập nhật…';
+});
+
+// ---------- Hiển thị ----------
+function renderFilters() {
+  $('filters').innerHTML = FILTERS.map(f => {
+    const n = orders.filter(o => f.match(o.status)).length;
+    return `<button class="chip" data-f="${f.id}" aria-pressed="${f.id === filter}">${f.label} (${n})</button>`;
+  }).join('');
+}
+
+function render() {
+  renderFilters();
+  const f = FILTERS.find(x => x.id === filter);
+  const rows = orders.filter(o => f.match(o.status));
+  $('list').innerHTML = rows.length ? rows.map(card).join('') : '<div class="empty">Chưa có đơn nào trong mục này.</div>';
+}
+
+function card(o) {
+  const st = STATUS[o.status] || { label:o.status, color:'var(--muted)' };
+  const nxt = NEXT[o.status], canCancel = CANCELLABLE.includes(o.status), b = busy.has(o.id);
+  const who = o.user ? (o.user.name || o.user.email) : 'Khách';
+  const items = (o.items || []).map(i => `<li>${esc(i.qty)}× ${esc(i.name)} <span class="meta">(${esc(i.size)})</span></li>`).join('');
+  return `<article class="order" style="--c:${st.color}">
+    <div>
+      <div class="top"><span class="oid">${esc(o.id)}</span><span class="badge">${st.label}</span></div>
+      <div class="meta">${esc(who)} · ${new Date(o.createdAt).toLocaleString('vi-VN', { dateStyle:'short', timeStyle:'short' })}</div>
+      <ul class="items">${items}</ul>
+    </div>
+    <div class="total">${money(o.total)}</div>
+    ${nxt || canCancel ? `<div class="actions">
+      ${canCancel ? `<button class="btn danger" data-act="cancel" data-id="${esc(o.id)}" ${b ? 'disabled' : ''}>Hủy đơn</button>` : ''}
+      ${nxt ? `<button class="btn primary" data-act="next" data-id="${esc(o.id)}" data-to="${nxt.to}" ${b ? 'disabled' : ''}>${nxt.label}</button>` : ''}
+    </div>` : ''}
+  </article>`;
+}
+
+$('filters').addEventListener('click', e => {
+  const c = e.target.closest('[data-f]'); if (!c) return;
+  filter = c.dataset.f; render();
+});
+
+$('list').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-act]'); if (!btn) return;
+  const id = btn.dataset.id, cancel = btn.dataset.act === 'cancel';
+  if (cancel && !confirm(`Hủy đơn ${id}? Thao tác này không hoàn tác được.`)) return;
+  busy.add(id); render();
+  try {
+    await authed(`/orders/${encodeURIComponent(id)}/status`, { method:'PATCH', body:{ status: cancel ? 'CANCELLED' : btn.dataset.to } });
+    toast(cancel ? `Đã hủy đơn ${id}` : `Đã cập nhật đơn ${id}`);
+    orders = await authed('/orders/staff');
+  } catch (err) { toast(err.message); }
+  finally { busy.delete(id); render(); }
+});
+
+let toastTimer;
+function toast(t) {
+  const el = $('toast'); el.textContent = t; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 3500);
+}
+
+// Khôi phục phiên khi tải lại trang
+try {
+  const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+  if (s?.accessToken) { session = s; $('api').value = s.api; enterBoard(); }
+} catch { localStorage.removeItem(KEY); }
+</script>
+</body>
+</html>
