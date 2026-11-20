@@ -79,13 +79,17 @@ jobs:
       - name: Install Backend Dependencies for Migration
         run: cd backend && npm ci
 
-      # 2.1 Safe Database Migration lên Supabase DB qua Direct Connection
-      - name: 🗄️ Run Safe Prisma Migration on Supabase
+      # BẮT BỘC: Sinh Prisma Client để tsx prisma/seed.ts import đúng module
+      - name: Generate Prisma Client
+        run: cd backend && npx prisma generate
+
+      # 2.1 Safe Database Migration & Seed Data lên Supabase DB
+      - name: 🗄️ Run Safe Prisma Migration & Seed on Supabase
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
           DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-        run: | 
+        run: |
           npx prisma migrate deploy
           npx prisma db seed
 
