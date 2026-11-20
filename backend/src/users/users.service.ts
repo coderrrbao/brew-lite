@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from "@nestjs/common";
+import { LoyaltyTransactionType } from "../generated/prisma/client";
 import type { Prisma, User } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
@@ -25,6 +26,7 @@ const VND_PER_POINT = 1_000;
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
+
   async create(data: {
     email: string;
     name?: string;
@@ -68,35 +70,69 @@ export class UsersService {
     return Math.floor(amount / VND_PER_POINT);
   }
 
-  async addLoyaltyPoints(id: string, points: number) {
+  /**
+   * Tăng điểm thưởng khi hoàn thành đơn hàng (EARN) và ghi log LoyaltyTransaction
+   */
+  async addLoyaltyPoints(
+    id: string,
+    points: number,
+    orderId?: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
     if (!Number.isSafeInteger(points) || points < 0) {
       throw new BadRequestException("Số điểm không hợp lệ");
     }
     if (points === 0) return;
 
-    await this.prisma.user.update({
+    // 1. Cập nhật cộng điểm người dùng
+    await tx.user.update({
       where: { id },
       data: { loyaltyPoints: { increment: points } },
     });
+
+    // 2. Ghi nhật ký biến động điểm (LoyaltyTransaction)
+    await tx.loyaltyTransaction.create({
+      data: {
+        userId: id,
+        orderId,
+        type: LoyaltyTransactionType.EARN,
+        points: points, // Số điểm cộng mang dấu dương
+      },
+    });
   }
 
- async redeemLoyaltyPoints(
-  id: string,
-  cost: number,
-  tx: Prisma.TransactionClient = this.prisma,
-) {
-  if (!Number.isSafeInteger(cost) || cost < 0) {
-    throw new BadRequestException("Số điểm không hợp lệ");
-  }
-  if (cost === 0) return;
+  /**
+   * Trừ điểm thưởng khi đổi mã ưu đãi (REDEEM) và ghi log LoyaltyTransaction
+   */
+  async redeemLoyaltyPoints(
+    id: string,
+    cost: number,
+    promotionCode?: string,
+    tx: Prisma.TransactionClient = this.prisma,
+  ) {
+    if (!Number.isSafeInteger(cost) || cost < 0) {
+      throw new BadRequestException("Số điểm không hợp lệ");
+    }
+    if (cost === 0) return;
 
-  const { count } = await tx.user.updateMany({
-    where: { id, loyaltyPoints: { gte: cost } },
-    data: { loyaltyPoints: { decrement: cost } },
-  });
+    // 1. Trừ điểm người dùng (điều kiện điểm hiện có >= cost)
+    const { count } = await tx.user.updateMany({
+      where: { id, loyaltyPoints: { gte: cost } },
+      data: { loyaltyPoints: { decrement: cost } },
+    });
 
-  if (count === 0) {
-    throw new BadRequestException("Không đủ điểm");
+    if (count === 0) {
+      throw new BadRequestException("Không đủ điểm");
+    }
+
+    // 2. Ghi nhật ký biến động điểm (LoyaltyTransaction)
+    await tx.loyaltyTransaction.create({
+      data: {
+        userId: id,
+        promotionCode,
+        type: LoyaltyTransactionType.REDEEM,
+        points: -cost, // Số điểm trừ mang dấu âm theo quy ước schema
+      },
+    });
   }
-}
 }
