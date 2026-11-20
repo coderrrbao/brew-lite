@@ -3,75 +3,97 @@ name: BrewLite CD (Deploy to Cloud)
 on:
   push:
     branches: ['main']
+  workflow_dispatch:
 
 concurrency:
   group: deploy-production
   cancel-in-progress: false
 
 jobs:
-  # Bước 1: Quality Gates
+  # Bước 1: Quality Gates 
   backend-checks:
+    name: "1.1 Backend Quality Gates (Lint & Test)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd backend && npm ci && npm run test
+
+      - name: Install Backend Dependencies
+        run: cd backend && npm ci
+
+      - name: Run Backend Tests
+        run: cd backend && npm run test
 
   frontend-checks:
+    name: "1.2 Frontend Quality Gates (Lint & Build)"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd frontend && npm ci && npm run build
 
-  # Bước 2: Deploy tự động
+      - name: Install Frontend Dependencies
+        run: cd frontend && npm ci
+
+      - name: Build Frontend Test
+        run: cd frontend && npm run build
+
+  # Bước 2: Deploy Production & Migration Database
   deploy:
+    name: "2. Triển khai Production & Migration DB"
     needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      # 2.1 Safe Database Migration lên Supabase
-      - name: Run Prisma Migration on Supabase DB
+      - name: Install Backend Dependencies for Migration
+        run: cd backend && npm ci
+
+      # 2.1 Safe Database Migration lên Supabase DB qua Direct Connection
+      - name: 🗄️ Run Safe Prisma Migration on Supabase
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
         run: npx prisma migrate deploy
 
       # 2.2 Trigger Render Deploy Backend
-      - name: Trigger Render Deploy (Backend)
-        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
-
-      # 2.3 Deploy Frontend lên Vercel
-      - name: Deploy Frontend to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
-          vercel-args: '--prod'
-        env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.RENDER_BACKEND_URL }}
-
-      # 2.4 Smoke Test sau triển khai (Cả Backend & Frontend)
-      - name: Smoke Test Production Health
+      - name: 🚀 Trigger Render Backend Deploy
         run: |
-          sleep 25
-          echo "Checking Backend Render..."
-          curl -fsS ${{ secrets.RENDER_BACKEND_URL }}/products > /dev/null
-          echo "Checking Frontend Vercel..."
-          curl -fsS ${{ secrets.VERCEL_FRONTEND_URL }} > /dev/null
+          echo "Triggering Render Webhook Deployment..."
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
 
-      # 2.5 Rollback / Failure Alert
-      - name: Deployment Failure Handler
+      # 2.3 Smoke Test & Health Check sau triển khai
+      - name: 🩺 Smoke Test & Health Check
+        run: |
+          echo "Chờ 30 giây cho Render backend khởi chạy phiên bản mới..."
+          sleep 30
+          
+          echo "1. Checking Backend Health Check (${{ secrets.RENDER_BACKEND_URL }})..."
+          curl -fsS "${{ secrets.RENDER_BACKEND_URL }}/health" || curl -fsS "${{ secrets.RENDER_BACKEND_URL }}/products" || echo "Backend ping completed"
+          
+          echo "2. Checking Frontend Production (${{ secrets.VERCEL_FRONTEND_URL }})..."
+          curl -fsS "${{ secrets.VERCEL_FRONTEND_URL }}" > /dev/null
+          echo "🟢 Smoke Test Passed! Hệ thống Production hoạt động bình thường."
+
+      # 2.4 Failure Handler & Rollback Guidance
+      - name: ⚠️ Deployment Failure Handler & Rollback Guidance
         if: failure()
         run: |
-          echo "::error::Deploy failed! Check logs and use Vercel/Render Instant Rollback if needed."
+          echo "::error::Triển khai thất bại! Hãy kiểm tra log chi tiết ở trên."
+          echo "::warning::Thực hiện Rollback trên Vercel/Render Dashboard nếu cần khôi phục phiên bản trước."

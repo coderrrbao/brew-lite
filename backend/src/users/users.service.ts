@@ -63,6 +63,22 @@ export class UsersService {
     return user;
   }
 
+  async getLoyaltyHistory(userId: string) {
+    return this.prisma.loyaltyTransaction.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        order: {
+          select: {
+            id: true,
+            total: true,
+            status: true,
+          },
+        },
+      },
+    });
+  }
+
   calculatePoints(amount: number): number {
     if (!Number.isSafeInteger(amount) || amount < 0) {
       throw new BadRequestException("Số tiền phải là số nguyên không âm");
@@ -109,6 +125,7 @@ export class UsersService {
     cost: number,
     promotionCode?: string,
     tx: Prisma.TransactionClient = this.prisma,
+    orderId?: string,
   ) {
     if (!Number.isSafeInteger(cost) || cost < 0) {
       throw new BadRequestException("Số điểm không hợp lệ");
@@ -129,6 +146,7 @@ export class UsersService {
     await tx.loyaltyTransaction.create({
       data: {
         userId: id,
+        orderId,
         promotionCode,
         type: LoyaltyTransactionType.REDEEM,
         points: -cost, // Số điểm trừ mang dấu âm theo quy ước schema

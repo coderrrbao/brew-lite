@@ -18,4 +18,9 @@ export class UsersController {
   getMyPoints(@CurrentUser() user: AuthUser) {
     return this.users.getLoyaltyPoints(user.sub);
   }
+
+  @Get('me/loyalty-history')
+  getLoyaltyHistory(@CurrentUser() user: AuthUser) {
+    return this.users.getLoyaltyHistory(user.sub);
+  }
 }
