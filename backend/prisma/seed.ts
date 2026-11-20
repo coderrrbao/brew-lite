@@ -9,6 +9,7 @@ import {
   OrderStatus,
   PaymentStatus,
   PromotionType,
+  LoyaltyTransactionType,
 } from "../src/generated/prisma/client";
 
 const connectionString = process.env.DATABASE_URL;
@@ -22,6 +23,7 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log("🌱 Bắt đầu xóa dữ liệu cũ...");
+  await prisma.loyaltyTransaction.deleteMany();
   await prisma.voucherUsage.deleteMany();
   await prisma.redeemedVoucher.deleteMany();
   await prisma.payment.deleteMany();
@@ -163,7 +165,6 @@ async function main() {
   console.log("🎟️ Đang tạo Khuyến mãi...");
   await prisma.promotion.createMany({
     data: [
-      // Nhóm mã thường (pointCost = 0 -> không cần đổi điểm)
       {
         code: "WELCOME10",
         description: "Giảm 10% cho đơn hàng từ 30k",
@@ -192,8 +193,6 @@ async function main() {
         pointCost: 0,
         active: true,
       },
-
-      // Nhóm mã đổi điểm (pointCost > 0)
       {
         code: "VIP30K",
         description: "Giảm 30k cho đơn từ 70k",
@@ -228,13 +227,11 @@ async function main() {
   console.log("🎫 Đang tạo Ví mã đã đổi (RedeemedVoucher)...");
   await prisma.redeemedVoucher.createMany({
     data: [
-      // user1 đã đổi VIP30K và chưa dùng -> sẽ hiện ở nhóm "Mã của bạn"
       {
         userId: user1.id,
         promotionCode: "VIP30K",
         pointsSpent: 50,
       },
-      // user1 đã đổi MEMBER20 và đã dùng ở order1 -> sẽ bị ẩn khỏi danh sách
       {
         userId: user1.id,
         promotionCode: "MEMBER20",
@@ -323,7 +320,7 @@ async function main() {
     },
   });
 
-  await prisma.order.create({
+  const order3 = await prisma.order.create({
     data: {
       userId: user2.id,
       subTotal: 55000,
@@ -354,7 +351,6 @@ async function main() {
     },
   });
 
-  // Ghi nhận lịch sử sử dụng mã của user1
   await prisma.voucherUsage.createMany({
     data: [
       {
@@ -368,6 +364,42 @@ async function main() {
         promotionCode: "USED15K",
         orderId: order2.id,
         discountAmount: 15000,
+      },
+    ],
+  });
+
+  console.log("💎 Đang tạo Nhật ký biến động điểm thưởng (LoyaltyTransaction)...");
+  await prisma.loyaltyTransaction.createMany({
+    data: [
+      {
+        userId: user1.id,
+        promotionCode: "VIP30K",
+        type: LoyaltyTransactionType.REDEEM,
+        points: -50,
+      },
+      {
+        userId: user1.id,
+        promotionCode: "MEMBER20",
+        type: LoyaltyTransactionType.REDEEM,
+        points: -80,
+      },
+      {
+        userId: user1.id,
+        orderId: order1.id,
+        type: LoyaltyTransactionType.EARN,
+        points: 80,
+      },
+      {
+        userId: user1.id,
+        orderId: order2.id,
+        type: LoyaltyTransactionType.EARN,
+        points: 50,
+      },
+      {
+        userId: user2.id,
+        orderId: order3.id,
+        type: LoyaltyTransactionType.EARN,
+        points: 55,
       },
     ],
   });

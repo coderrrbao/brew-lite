@@ -12,11 +12,14 @@
     "build:backend": "npm run build --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
     "test:backend": "npm test --prefix backend",
-    "prisma:generate": "npx prisma generate --schema=backend/prisma/schema.prisma",
-    "prisma:migrate": "npx prisma migrate dev --schema=backend/prisma/schema.prisma"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx backend/prisma/seed.ts",
+    "prisma:studio": "prisma studio"
   },
   "devDependencies": {
     "dotenv": "^18.0.10",
-    "prisma": "^8.0.0-rc.34"
+    "dotenv-cli": "^11.1.0",
+    "prisma": "7.10.1"
   }
 }

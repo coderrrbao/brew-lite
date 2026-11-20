@@ -34,23 +34,30 @@ enum PaymentStatus {
   PENDING
 }
 
+// + LOYALTY
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+}
+
 enum PromotionType {
   PERCENTAGE
   FIXED_AMOUNT
 }
 
 model User {
-  id               String            @id @default(cuid())
-  name             String?
-  email            String            @unique
-  passwordHash     String
-  role             UserRole          @default(CUSTOMER)
-  loyaltyPoints    Int               @default(0)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  orders           Order[]
-  redeemedVouchers RedeemedVoucher[]
-  voucherUsages    VoucherUsage[]
+  id                  String               @id @default(cuid())
+  name                String?
+  email               String               @unique
+  passwordHash        String
+  role                UserRole             @default(CUSTOMER)
+  loyaltyPoints       Int                  @default(0)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  orders              Order[]
+  redeemedVouchers    RedeemedVoucher[]
+  voucherUsages       VoucherUsage[]
+  loyaltyTransactions LoyaltyTransaction[] // + LOYALTY
 }
 
 model Product {
@@ -72,19 +79,20 @@ model Product {
 }
 
 model Order {
-  id             String      @id @default(cuid())
-  userId         String?
-  promotionCode  String?
-  pointsSpent    Int         @default(0)
-  subTotal       Int
-  total          Int
-  discountAmount Int         @default(0)
-  status         OrderStatus @default(PENDING)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  user           User?       @relation(fields: [userId], references: [id], onDelete: Restrict)
-  items          OrderItem[]
-  payments       Payment[]
+  id                  String               @id @default(cuid())
+  userId              String?
+  promotionCode       String?
+  pointsSpent         Int                  @default(0)
+  subTotal            Int
+  total               Int
+  discountAmount      Int                  @default(0)
+  status              OrderStatus          @default(PENDING)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  user                User?                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  items               OrderItem[]
+  payments            Payment[]
+  loyaltyTransactions LoyaltyTransaction[] // + LOYALTY
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -176,4 +184,21 @@ model VoucherUsage {
   promotion Promotion @relation(fields: [promotionCode], references: [code], onDelete: Cascade)
 
   @@index([userId, promotionCode])
+}
+
+// + LOYALTY: nhật ký biến động điểm thưởng (ghi ngầm bởi backend).
+// points > 0: cộng điểm, points < 0: trừ điểm.
+model LoyaltyTransaction {
+  id            String                 @id @default(cuid())
+  userId        String
+  orderId       String?
+  promotionCode String?
+  type          LoyaltyTransactionType
+  points        Int
+  createdAt     DateTime               @default(now())
+  user          User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order         Order?                 @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([orderId])
 }
