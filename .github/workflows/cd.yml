@@ -30,7 +30,11 @@ jobs:
         run: cd backend && npx prisma generate
 
       - name: Run Backend Tests
-        run: cd backend && npm run test
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+        run: npm run test
 
   frontend-checks:
     name: "1.2 Frontend Quality Gates (Lint & Build)"
