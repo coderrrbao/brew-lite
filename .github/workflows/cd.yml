@@ -10,10 +10,27 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Bước 1: Quality Gates 
+  # Bước 1.1: Quality Gates Backend (Dùng PostgreSQL Container Ảo)
   backend-checks:
     name: "1.1 Backend Quality Gates (Lint & Test)"
     runs-on: ubuntu-latest
+    
+    # Kích hoạt Postgres Container ảo phục vụ riêng cho Test
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: BrewLite_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,21 +46,23 @@ jobs:
       - name: Generate Prisma Client
         run: cd backend && npx prisma generate
 
-      # Áp dụng migration chuẩn lên Supabase trước khi test (Thay cho db push)
-      - name: Run Safe Migration for Integration Tests
+      # Tạo cấu trúc bảng tức thì trên Database Container Ảo
+      - name: Push Schema to Test Database
         working-directory: backend
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-        run: npx prisma migrate deploy
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
+          DIRECT_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
+        run: npx prisma db push
 
+      # Chạy 110 Unit & Integration Tests trên DB Ảo
       - name: Run Backend Tests
         working-directory: backend
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+          DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
+          DIRECT_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
         run: npm run test
 
+  # Bước 1.2: Quality Gates Frontend
   frontend-checks:
     name: "1.2 Frontend Quality Gates (Lint & Build)"
     runs-on: ubuntu-latest
@@ -62,7 +81,7 @@ jobs:
       - name: Build Frontend Test
         run: cd frontend && npm run build
 
-  # Bước 2: Deploy Production & Migration Database
+  # Bước 2: Deploy Production & Migration Database (THẬT trên Supabase & Render)
   deploy:
     name: "2. Triển khai Production & Migration DB"
     needs: [backend-checks, frontend-checks]
@@ -79,11 +98,10 @@ jobs:
       - name: Install Backend Dependencies for Migration
         run: cd backend && npm ci
 
-      # BẮT BỘC: Sinh Prisma Client để tsx prisma/seed.ts import đúng module
       - name: Generate Prisma Client
         run: cd backend && npx prisma generate
 
-      # 2.1 Safe Database Migration & Seed Data lên Supabase DB
+      # 2.1 Run Migration & Seed dữ liệu chuẩn lên Supabase Cloud THẬT
       - name: 🗄️ Run Safe Prisma Migration & Seed on Supabase
         working-directory: backend
         env:
