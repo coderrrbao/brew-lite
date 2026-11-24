@@ -1,3 +1,4 @@
+
 # BrewLite
 
 BrewLite is a coffee shop ordering app with a **Next.js frontend** and a
@@ -26,8 +27,8 @@ docker compose up --build
 
 Open:
 
-- Web app: <http://localhost:3000>
-- API products: <http://localhost:4000/products>
+- Web app: [http://localhost:3000](http://localhost:3000)
+- API products: [http://localhost:4000/products](http://localhost:4000/products)
 
 Stop the containers with `Ctrl+C`. To stop and remove them later, run:
 
@@ -81,7 +82,7 @@ Set-Location frontend
 pnpm dev
 ```
 
-Then open <http://localhost:3000>. The frontend uses
+Then open [http://localhost:3000](http://localhost:3000). The frontend uses
 `http://localhost:4000` for browser-side API requests by default. For
 server-side requests it uses `INTERNAL_API_URL` when set, otherwise it uses
 the public API URL.
@@ -114,17 +115,17 @@ When running in Docker Compose, `INTERNAL_API_URL` is set to
 
 The NestJS API provides these endpoints:
 
-| Method | Endpoint | Purpose |
-| --- | --- | --- |
-| `GET` | `/products` | List products |
-| `GET` | `/products/:id` | Get one product |
-| `POST` | `/auth/register` | Register a user |
-| `POST` | `/auth/login` | Log in a user |
-| `POST` | `/orders` | Create an order |
-| `GET` | `/orders/me` | Get the authenticated user's order history |
-| `POST` | `/payments` | Process a payment |
-| `GET` | `/promotions` | List active promotion codes |
-| `POST` | `/promotions/validate` | Validate a promotion against a subtotal |
+| Method   | Endpoint                 | Purpose                                    |
+| -------- | ------------------------ | ------------------------------------------ |
+| `GET`  | `/products`            | List products                              |
+| `GET`  | `/products/:id`        | Get one product                            |
+| `POST` | `/auth/register`       | Register a user                            |
+| `POST` | `/auth/login`          | Log in a user                              |
+| `POST` | `/orders`              | Create an order                            |
+| `GET`  | `/orders/me`           | Get the authenticated user's order history |
+| `POST` | `/payments`            | Process a payment                          |
+| `GET`  | `/promotions`          | List active promotion codes                |
+| `POST` | `/promotions/validate` | Validate a promotion against a subtotal    |
 
 Product, order, payment, promotion, and user data are stored in PostgreSQL
 through Prisma. The frontend does not fall back to local product data when the
@@ -175,23 +176,21 @@ them as the stable import path used by the app.
 
 Run these commands from the corresponding app directory:
 
-| Directory | Command | Description |
-| --- | --- | --- |
-| `frontend/` | `pnpm dev` | Start the Next.js development server |
-| `frontend/` | `pnpm build` | Build the frontend for production |
-| `frontend/` | `pnpm start` | Start the production frontend |
-| `frontend/` | `pnpm lint` | Run the TypeScript check |
-| `backend/` | `pnpm start:dev` | Start the NestJS API in watch mode |
-| `backend/` | `pnpm build` | Build the API |
-| `backend/` | `pnpm start` | Start the built API |
+| Directory     | Command            | Description                          |
+| ------------- | ------------------ | ------------------------------------ |
+| `frontend/` | `pnpm dev`       | Start the Next.js development server |
+| `frontend/` | `pnpm build`     | Build the frontend for production    |
+| `frontend/` | `pnpm start`     | Start the production frontend        |
+| `frontend/` | `pnpm lint`      | Run the TypeScript check             |
+| `backend/`  | `pnpm start:dev` | Start the NestJS API in watch mode   |
+| `backend/`  | `pnpm build`     | Build the API                        |
+| `backend/`  | `pnpm start`     | Start the built API                  |
 
 Repo 1 keeps the required Task 10 business checks beside their owning modules:
 order state transitions are tested in the orders suite, stock protection is
 implemented and tested in the products suite, while payment idempotency is
 tested in the payments suite. Promotion and loyalty integration remains a
 TODO until it is wired into the payment transaction.
-
-
 
 ```powershell
 node test.js

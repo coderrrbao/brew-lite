@@ -7,6 +7,7 @@ import { OrderStatus, PaymentStatus, Prisma } from "../generated/prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { ProductsService } from "../products/products.service";
 import { UsersService } from "../users/users.service";
+import { PromotionsService } from "../promotions/promotions.service";
 import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 
 const PAYABLE: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED];
@@ -17,6 +18,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly productsService: ProductsService,
     private readonly usersService: UsersService,
+    private readonly promotionsService: PromotionsService,
   ) {}
 
   async create(dto: CreatePaymentDto & { idempotencyKey: string }) {
@@ -94,6 +96,19 @@ export class PaymentsService {
         );
         // 2. Điểm thưởng
         pointsSpent = await this.applyLoyalty(tx, order);
+
+        // 3. Ghi nhận voucher đã dùng (nếu có)
+        if (order.userId && order.promotionCode) {
+          await this.promotionsService.recordVoucherUsage(
+            {
+              userId: order.userId,
+              promotionCode: order.promotionCode,
+              orderId: order.id,
+              discountAmount: order.discountAmount,
+            },
+            tx,
+          );
+        }
       }
 
       // 3. Cuối cùng mới đổi trạng thái (guard status chống race giữa 2 request)

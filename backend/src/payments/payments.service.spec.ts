@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
 import { UsersService } from "../users/users.service";
 import { ProductsService } from "../products/products.service";
+import { PromotionsService } from "../promotions/promotions.service";
 
 async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
   const adminUrl = new URL(databaseUrl);
@@ -41,6 +42,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
   let usersService: UsersService;
   let productsService: ProductsService;
+  let promotionsService: PromotionsService;
   let service: PaymentsService;
   let userId: string;
   let orderId: string;
@@ -65,8 +67,14 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     await prisma.$connect();
     usersService = new UsersService(prisma);
     productsService = new ProductsService(prisma);
+    promotionsService = new PromotionsService(prisma);
     // Thứ tự constructor: (prisma, productsService, usersService)
-    service = new PaymentsService(prisma, productsService, usersService);
+    service = new PaymentsService(
+      prisma,
+      productsService,
+      usersService,
+      promotionsService,
+    );
   }, 60_000);
 
   beforeEach(async () => {
@@ -296,9 +304,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
   it("reserveStock() ném NotFoundException khi sản phẩm không tồn tại", async () => {
     await expect(
       prisma.$transaction((tx) =>
-        productsService.reserveStock(tx, [
-          { productId: randomUUID(), qty: 1 },
-        ]),
+        productsService.reserveStock(tx, [{ productId: randomUUID(), qty: 1 }]),
       ),
     ).rejects.toThrow(NotFoundException);
   });
@@ -453,7 +459,9 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     ]);
 
     const fulfilled = results.filter(
-      (r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof service.pay>>> =>
+      (
+        r,
+      ): r is PromiseFulfilledResult<Awaited<ReturnType<typeof service.pay>>> =>
         r.status === "fulfilled",
     );
     const rejected = results.filter(
