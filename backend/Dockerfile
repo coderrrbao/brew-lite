@@ -9,12 +9,16 @@ RUN npm prune --omit=dev
 
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production PORT=4000
+ENV NODE_ENV=production
+ENV PORT=4000
+
 COPY package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src/generated ./src/generated
 COPY --from=builder /app/prisma.config.* ./
 COPY --from=builder /app/prisma ./prisma
+
 EXPOSE 4000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+
+CMD ["node", "dist/main.js"]

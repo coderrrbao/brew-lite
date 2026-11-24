@@ -25,6 +25,9 @@ describe("PromotionsService", () => {
     user: {
       updateMany: jest.Mock;
     };
+    loyaltyTransaction: {
+      create: jest.Mock;
+    };
     $transaction: jest.Mock;
   };
 
@@ -108,6 +111,9 @@ describe("PromotionsService", () => {
       },
       user: {
         updateMany: jest.fn(),
+      },
+      loyaltyTransaction: {
+        create: jest.fn(),
       },
       $transaction: jest.fn((cb) => cb(prismaMock)),
     };
