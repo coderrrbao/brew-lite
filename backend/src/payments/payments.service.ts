@@ -10,7 +10,10 @@ import { UsersService } from "../users/users.service";
 import { PromotionsService } from "../promotions/promotions.service";
 import { CreatePaymentDto, PayOrderDto } from "./dto/create-payment.dto";
 
-const PAYABLE: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.PAYMENT_FAILED];
+const PAYABLE: OrderStatus[] = [
+  OrderStatus.PENDING,
+  OrderStatus.PAYMENT_FAILED,
+];
 
 @Injectable()
 export class PaymentsService {
@@ -28,7 +31,9 @@ export class PaymentsService {
     });
     if (!order) throw new NotFoundException("Đơn hàng không tồn tại");
     if (!PAYABLE.includes(order.status)) {
-      throw new ConflictException("Đơn hàng đã thanh toán hoặc không thể thanh toán");
+      throw new ConflictException(
+        "Đơn hàng đã thanh toán hoặc không thể thanh toán",
+      );
     }
 
     let payment;
@@ -44,12 +49,17 @@ export class PaymentsService {
       });
     } catch (e) {
       // Trùng idempotencyKey => coi như request lặp, lấy lại payment cũ
-      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
         payment = await this.prisma.payment.findUniqueOrThrow({
           where: { idempotencyKey: dto.idempotencyKey },
         });
         if (payment.orderId !== order.id) {
-          throw new ConflictException("Idempotency key đã dùng cho đơn hàng khác");
+          throw new ConflictException(
+            "Idempotency key đã dùng cho đơn hàng khác",
+          );
         }
       } else {
         throw e;
@@ -109,6 +119,11 @@ export class PaymentsService {
             tx,
           );
         }
+      } else {
+        // Thanh toán thất bại => Hoàn lại mã giảm giá (nếu đơn có áp mã)
+        if (order.promotionCode) {
+          await this.promotionsService.rollbackVoucherUsage(order.id, tx);
+        }
       }
 
       // 3. Cuối cùng mới đổi trạng thái (guard status chống race giữa 2 request)
@@ -123,7 +138,10 @@ export class PaymentsService {
           include: { items: true, payments: true },
         });
       } catch (e) {
-        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2025") {
+        if (
+          e instanceof Prisma.PrismaClientKnownRequestError &&
+          e.code === "P2025"
+        ) {
           throw new ConflictException("Trạng thái đơn hàng vừa thay đổi"); // rollback cả kho + điểm
         }
         throw e;
@@ -131,7 +149,9 @@ export class PaymentsService {
 
       const updatedPayment = await tx.payment.update({
         where: { id: payment.id },
-        data: { status: dto.success ? PaymentStatus.PAID : PaymentStatus.FAILED },
+        data: {
+          status: dto.success ? PaymentStatus.PAID : PaymentStatus.FAILED,
+        },
       });
 
       return {
@@ -147,7 +167,11 @@ export class PaymentsService {
   /** Trừ điểm đổi khuyến mãi + cộng điểm tích lũy trong 1 câu update. Trả về số điểm đã tiêu. */
   private async applyLoyalty(
     tx: Prisma.TransactionClient,
-    order: { userId: string | null; promotionCode: string | null; total: number },
+    order: {
+      userId: string | null;
+      promotionCode: string | null;
+      total: number;
+    },
   ): Promise<number> {
     if (!order.userId) return 0;
 
@@ -196,7 +220,8 @@ export class PaymentsService {
         where: { id: productId },
         select: { id: true },
       });
-      if (!exists) throw new NotFoundException(`Sản phẩm ${productId} không tồn tại`);
+      if (!exists)
+        throw new NotFoundException(`Sản phẩm ${productId} không tồn tại`);
       throw new ConflictException(`Sản phẩm ${productId} không đủ hàng`);
     }
   }
