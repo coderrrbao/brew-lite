@@ -18,6 +18,23 @@ import {
   cardCls,
 } from "./ui";
 
+// Polling tiếp tục cho đến khi đơn vào trạng thái cuối (giữ nguyên hành vi cũ)
+const POLL_STATUSES: ReadonlyArray<Order["status"]> = [
+  "PENDING",
+  "PAID",
+  "PREPARING",
+  "READY",
+];
+const STEPS = [
+  { key: "PAID", label: "Đã thanh toán" },
+  { key: "PREPARING", label: "Đang pha chế" },
+  { key: "READY", label: "Sẵn sàng nhận" },
+  { key: "COMPLETED", label: "Hoàn thành" },
+] as const;
+
+const POLL_MS = 2500;
+const MAX_FAILURES = 5;
+
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
   const [order, setOrder] = useState<Order | undefined>();
@@ -54,30 +71,39 @@ export default function ConfirmationPage() {
     void loadOrder();
   }, [loadOrder]);
 
+  const status = order?.status;
+
   useEffect(() => {
-    if (!id || !order) return;
+    if (!id || !status || !POLL_STATUSES.includes(status)) return;
 
-    if (
-      order.status === "COMPLETED" ||
-      order.status === "CANCELLED" ||
-      order.status === "PAYMENT_FAILED"
-    ) {
-      return;
-    }
+    let cancelled = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
 
-    const interval = setInterval(async () => {
-      try {
-        const updatedOrder = await getOrderById(id);
-        if (updatedOrder) {
-          setOrder(updatedOrder);
+    const tick = async () => {
+  
+      if (!document.hidden) {
+        try {
+          const updated = await getOrderById(id);
+          if (cancelled) return;
+          failures = 0;
+          if (updated) setOrder(updated);
+        } catch {
+          if (cancelled) return;
+          if (++failures >= MAX_FAILURES) return;
         }
-      } catch {
-        // Bỏ qua lỗi mạng tạm thời khi polling
       }
-    }, 2500);
+      // Chờ request xong mới hẹn lượt sau; lỗi thì giãn dần thời gian chờ
+      timer = setTimeout(tick, POLL_MS * 2 ** Math.min(failures, 3));
+    };
 
-    return () => clearInterval(interval);
-  }, [id, order?.status]);
+    timer = setTimeout(tick, POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [id, status]);
 
   if (loading) {
     return (
@@ -156,6 +182,34 @@ export default function ConfirmationPage() {
           })}
         </p>
       </div>
+
+      {!isUnpaid && !isCancelled && (
+        <ol
+          aria-label="Tiến trình đơn hàng"
+          className={`${cardCls} mx-auto mt-6 flex max-w-2xl gap-2 p-5`}
+        >
+          {STEPS.map((step, i) => {
+            const current = STEPS.findIndex((x) => x.key === order.status);
+            const done = i <= current;
+            return (
+              <li
+                key={step.key}
+                aria-current={i === current ? "step" : undefined}
+                className={`flex-1 text-center text-sm ${
+                  done ? "font-semibold text-accent" : "text-muted-foreground"
+                }`}
+              >
+                <span
+                  className={`mb-2 block h-2 rounded-full ${
+                    done ? "bg-accent" : "bg-border"
+                  }`}
+                />
+                {step.label}
+              </li>
+            );
+          })}
+        </ol>
+      )}
 
       <div className="mt-6 max-w-2xl mx-auto">
         <section className={`${cardCls} p-6`}>

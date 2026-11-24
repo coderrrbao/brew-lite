@@ -124,6 +124,15 @@ async findAll(userId?: string) {
         );
       }
 
+      await tx.loyaltyTransaction.create({
+        data: {
+          userId,
+          promotionCode: promotion.code,
+          type: "REDEEM",
+          points: -promotion.pointCost,
+        },
+      });
+
       const redeemedVoucher = await tx.redeemedVoucher.create({
         data: {
           userId,

@@ -144,10 +144,10 @@ export class PaymentsService {
     });
   }
 
-  /** Trừ điểm đổi khuyến mãi + cộng điểm tích lũy trong 1 câu update. Trả về số điểm đã tiêu. */
+  /** Trừ điểm đổi khuyến mãi (REDEEM) + cộng điểm tích lũy (EARN) qua UsersService. Trả về số điểm đã tiêu. */
   private async applyLoyalty(
     tx: Prisma.TransactionClient,
-    order: { userId: string | null; promotionCode: string | null; total: number },
+    order: { id: string; userId: string | null; promotionCode: string | null; total: number },
   ): Promise<number> {
     if (!order.userId) return 0;
 
@@ -162,11 +162,30 @@ export class PaymentsService {
 
     const earned = this.usersService.calculatePoints(order.total);
 
-    const res = await tx.user.updateMany({
-      where: { id: order.userId, loyaltyPoints: { gte: spent } },
-      data: { loyaltyPoints: { increment: earned - spent } },
-    });
-    if (res.count === 0) throw new ConflictException("Không đủ điểm thưởng");
+    // 1. Trừ điểm đổi khuyến mãi (nếu có chi phí điểm)
+    if (spent > 0) {
+      try {
+        await this.usersService.redeemLoyaltyPoints(
+          order.userId,
+          spent,
+          order.promotionCode ?? undefined,
+          tx,
+          order.id,
+        );
+      } catch {
+        throw new ConflictException("Không đủ điểm thưởng");
+      }
+    }
+
+    // 2. Cộng điểm tích lũy khi hoàn tất đơn hàng
+    if (earned > 0) {
+      await this.usersService.addLoyaltyPoints(
+        order.userId,
+        earned,
+        order.id,
+        tx,
+      );
+    }
 
     return spent;
   }
