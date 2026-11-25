@@ -7,6 +7,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
 import { UsersService } from "../users/users.service";
 import { ProductsService } from "../products/products.service";
+import { PromotionsService } from "../promotions/promotions.service";
 
 async function ensureTestDatabase(databaseUrl: string, databaseName: string) {
   const adminUrl = new URL(databaseUrl);
@@ -41,6 +42,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
   let prisma: PrismaService;
   let usersService: UsersService;
   let productsService: ProductsService;
+  let promotionsService: PromotionsService;
   let service: PaymentsService;
   let userId: string;
   let orderId: string;
@@ -65,8 +67,13 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     await prisma.$connect();
     usersService = new UsersService(prisma);
     productsService = new ProductsService(prisma);
-    // Thứ tự constructor: (prisma, productsService, usersService)
-    service = new PaymentsService(prisma, productsService, usersService);
+    promotionsService = new PromotionsService(prisma);
+    service = new PaymentsService(
+      prisma,
+      productsService,
+      usersService,
+      promotionsService,
+    );
   }, 60_000);
 
   beforeEach(async () => {
@@ -177,7 +184,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     promotionCodes.push(code);
     await prisma.order.update({
       where: { id: orderId },
-      data: { promotionCode: code },
+      data: { promotionCode: code, discountAmount: 10000 },
     });
   };
 
@@ -318,6 +325,36 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect((await getUser()).loyaltyPoints).toBe(
       500 + usersService.calculatePoints(90000) - 100,
     );
+  });
+
+  it("pay() lưu voucher một lần theo order dù thanh toán được gọi lại", async () => {
+    await applyPromotion(0);
+    const idempotencyKey = randomUUID();
+    await createPayment(idempotencyKey);
+
+    await service.pay({ idempotencyKey, success: true });
+    await service.pay({ idempotencyKey, success: true });
+
+    const usages = await prisma.voucherUsage.findMany({
+      where: { orderId },
+    });
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toMatchObject({
+      userId,
+      promotionCode: promotionCodes[0],
+      orderId,
+      discountAmount: 10000,
+    });
+  });
+
+  it("pay() không lưu voucher khi thanh toán thất bại", async () => {
+    await applyPromotion(0);
+    const idempotencyKey = randomUUID();
+    await createPayment(idempotencyKey);
+
+    await service.pay({ idempotencyKey, success: false });
+
+    expect(await prisma.voucherUsage.count({ where: { orderId } })).toBe(0);
   });
 
   it("pay() ném ConflictException khi user không đủ điểm và rollback cả kho", async () => {

@@ -233,8 +233,10 @@ async findAll(userId?: string) {
     },
     tx: Prisma.TransactionClient = this.prisma,
   ) {
-    await tx.voucherUsage.create({
-      data: params,
+    await tx.voucherUsage.upsert({
+      where: { orderId: params.orderId },
+      create: params,
+      update: {},
     });
   }
 

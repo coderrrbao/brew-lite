@@ -15,6 +15,14 @@ import {
 } from "./ui";
 import { getAccessToken } from "@/lib/api/auth";
 
+const POLL_MS = 2500;
+const POLL_STATUSES: ReadonlyArray<Order["status"]> = [
+  "PENDING",
+  "PAID",
+  "PREPARING",
+  "READY",
+];
+
 const statusConfig: Record<Order["status"], { label: string; cls: string }> = {
   PENDING: { label: "Chờ xử lý", cls: "bg-[#f6e7c1] text-[#6b4a05]" },
   PAID: { label: "Đã thanh toán", cls: "bg-[#dbe7f5] text-[#1d3f6e]" },
@@ -37,9 +45,13 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [pollError, setPollError] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
 
   const orders = state.orders || [];
+  const hasOrdersToPoll = orders.some((order) =>
+    POLL_STATUSES.includes(order.status),
+  );
 
   async function loadOrders() {
     setLoading(true);
@@ -101,12 +113,53 @@ export default function OrdersPage() {
     void loadOrders();
   }, []);
 
+  useEffect(() => {
+    if (isLoggedIn !== true || !hasOrdersToPoll) return;
+
+    let cancelled = false;
+    let failures = 0;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const poll = async () => {
+      if (!document.hidden) {
+        try {
+          const result = await getMyOrders();
+          if (cancelled) return;
+          failures = 0;
+          setPollError("");
+          dispatch({ type: "SET_ORDERS", orders: result });
+        } catch {
+          if (cancelled) return;
+          failures += 1;
+          setPollError("Không thể cập nhật trạng thái đơn hàng. Đang thử lại...");
+        }
+      }
+
+      timer = setTimeout(
+        poll,
+        Math.min(POLL_MS * 2 ** Math.min(failures, 3), 20_000),
+      );
+    };
+
+    timer = setTimeout(poll, POLL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [dispatch, hasOrdersToPoll, isLoggedIn]);
+
   return (
     <PageShell>
       <h1 className="text-4xl font-semibold">Lịch sử đơn hàng</h1>
       <p className="mt-2 text-muted-foreground">
         Theo dõi trạng thái và xem lại các đơn đã đặt.
       </p>
+      {pollError && (
+        <p role="status" className="mt-3 text-sm text-muted-foreground">
+          {pollError}
+        </p>
+      )}
 
       {isLoggedIn === false ? (
         <div className="mt-14 flex flex-col items-center text-center">

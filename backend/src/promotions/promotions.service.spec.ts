@@ -19,7 +19,7 @@ describe("PromotionsService", () => {
       findMany: jest.Mock;
       findFirst: jest.Mock;
       count: jest.Mock;
-      create: jest.Mock;
+      upsert: jest.Mock;
       deleteMany: jest.Mock;
     };
     user: {
@@ -106,7 +106,7 @@ describe("PromotionsService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(0),
-        create: jest.fn(),
+        upsert: jest.fn(),
         deleteMany: jest.fn(),
       },
       user: {
@@ -351,7 +351,7 @@ describe("PromotionsService", () => {
   });
 
   describe("recordVoucherUsage & rollbackVoucherUsage", () => {
-    it("ghi nhận sử dụng mã vào VoucherUsage", async () => {
+    it("ghi nhận sử dụng mã theo orderId để không tạo bản ghi trùng", async () => {
       await service.recordVoucherUsage({
         userId: "user-1",
         promotionCode: "BREW10",
@@ -359,13 +359,15 @@ describe("PromotionsService", () => {
         discountAmount: 15000,
       });
 
-      expect(prismaMock.voucherUsage.create).toHaveBeenCalledWith({
-        data: {
+      expect(prismaMock.voucherUsage.upsert).toHaveBeenCalledWith({
+        where: { orderId: "order-1" },
+        create: {
           userId: "user-1",
           promotionCode: "BREW10",
           orderId: "order-1",
           discountAmount: 15000,
         },
+        update: {},
       });
     });
 
