@@ -1,7 +1,11 @@
 import "dotenv/config";
 import { execSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { ConflictException, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from "@nestjs/common";
 import { Client } from "pg";
 import { PrismaService } from "../prisma/prisma.service";
 import { PaymentsService } from "./payments.service";
@@ -99,6 +103,7 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     await prisma.payment.deleteMany({ where: { orderId } });
     await prisma.orderItem.deleteMany({ where: { orderId } });
     await prisma.order.delete({ where: { id: orderId } });
+    await prisma.redeemedVoucher.deleteMany({ where: { userId } });
     if (productIds.length) {
       await prisma.product.deleteMany({ where: { id: { in: productIds } } });
     }
@@ -186,6 +191,15 @@ describe("PaymentsService (PostgreSQL integration)", () => {
       where: { id: orderId },
       data: { promotionCode: code, discountAmount: 10000 },
     });
+  };
+
+  const redeemVoucher = async () => {
+    const { promotionCode } = await prisma.order.findUniqueOrThrow({
+      where: { id: orderId },
+      select: { promotionCode: true },
+    });
+    if (!promotionCode) throw new Error("Order has no promotion code");
+    await promotionsService.redeemPromotion(userId, promotionCode);
   };
 
   // 1. LUỒNG THANH TOÁN CƠ BẢN
@@ -310,12 +324,13 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     ).rejects.toThrow(NotFoundException);
   });
 
-  it("pay() trừ điểm đổi khuyến mãi, cộng điểm tích lũy và ghi pointsSpent vào đơn", async () => {
+  it("pay() ghi điểm đã đổi vào đơn và không trừ điểm lần thứ hai", async () => {
     await prisma.user.update({
       where: { id: userId },
       data: { loyaltyPoints: 500 },
     });
     await applyPromotion(100);
+    await redeemVoucher();
     const idempotencyKey = randomUUID();
     await createPayment(idempotencyKey);
 
@@ -323,8 +338,40 @@ describe("PaymentsService (PostgreSQL integration)", () => {
 
     expect(result.order.pointsSpent).toBe(100);
     expect((await getUser()).loyaltyPoints).toBe(
-      500 + usersService.calculatePoints(90000) - 100,
+      400 + usersService.calculatePoints(90000),
     );
+  });
+
+  it("pay() ghi pointsSpent bằng 0 nếu mã không được đổi điểm", async () => {
+    await applyPromotion(0);
+    const idempotencyKey = randomUUID();
+    await createPayment(idempotencyKey);
+
+    const result = await service.pay({ idempotencyKey, success: true });
+
+    expect(result.order.pointsSpent).toBe(0);
+  });
+
+  it("thanh toán thất bại do thiếu hàng vẫn giữ voucher đã đổi và số dư sau đổi", async () => {
+    const product = await createProduct(2);
+    await addItem(product.id, 5);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { loyaltyPoints: 500 },
+    });
+    await applyPromotion(100);
+    await redeemVoucher();
+    const idempotencyKey = randomUUID();
+    await createPayment(idempotencyKey);
+
+    await expect(
+      service.pay({ idempotencyKey, success: true }),
+    ).rejects.toThrow(ConflictException);
+
+    expect((await getOrder()).status).toBe("PENDING");
+    expect((await getUser()).loyaltyPoints).toBe(400);
+    expect((await getProduct(product.id)).stock).toBe(2);
+    expect(await prisma.redeemedVoucher.count({ where: { userId } })).toBe(1);
   });
 
   it("pay() lưu voucher một lần theo order dù thanh toán được gọi lại", async () => {
@@ -357,24 +404,19 @@ describe("PaymentsService (PostgreSQL integration)", () => {
     expect(await prisma.voucherUsage.count({ where: { orderId } })).toBe(0);
   });
 
-  it("pay() ném ConflictException khi user không đủ điểm và rollback cả kho", async () => {
-    const product = await createProduct(10);
-    await addItem(product.id, 3);
+  it("không đổi được voucher khi user không đủ điểm", async () => {
     await prisma.user.update({
       where: { id: userId },
       data: { loyaltyPoints: 50 },
     });
     await applyPromotion(100);
-    const idempotencyKey = randomUUID();
-    await createPayment(idempotencyKey);
 
     await expect(
-      service.pay({ idempotencyKey, success: true }),
-    ).rejects.toThrow(ConflictException);
+      redeemVoucher(),
+    ).rejects.toThrow(BadRequestException);
 
-    expect((await getOrder()).status).toBe("PENDING");
     expect((await getUser()).loyaltyPoints).toBe(50);
-    expect((await getProduct(product.id)).stock).toBe(10);
+    expect(await prisma.redeemedVoucher.count({ where: { userId } })).toBe(0);
   });
 
   // 3. TÍNH BẤT BIẾN (IDEMPOTENCY) & RETRY

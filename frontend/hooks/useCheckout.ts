@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getCurrentUser } from "@/lib/api/auth";
 import { cancelOrder, createOrder, getOrderById, updateOrderStatus } from "@/lib/api/orders";
 import { confirmPayment, createPayment } from "@/lib/api/payments";
 import type { PromotionValidation } from "@/lib/api/promotions";
@@ -151,13 +152,24 @@ export function useCheckout(
 
         if (state.user) {
           const earnedPoints = Math.floor(confirmRes.order.total / 1000);
+          const pointsSpent = confirmRes.order.pointsSpent ?? 0;
           dispatch({
             type: "SET_USER",
             user: {
               ...state.user,
-              loyaltyPoints: (state.user.loyaltyPoints ?? 0) + earnedPoints,
+              loyaltyPoints: Math.max(
+                0,
+                (state.user.loyaltyPoints ?? 0) - pointsSpent + earnedPoints,
+              ),
             },
           });
+
+          try {
+            const freshUser = await getCurrentUser();
+            dispatch({ type: "SET_USER", user: freshUser });
+          } catch (error) {
+            console.error("Không thể cập nhật điểm sau thanh toán:", error);
+          }
         }
 
         if (!existingOrderId) {
