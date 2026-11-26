@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { getOrderById } from "@/lib/api/orders";
-import { type Order } from "@/lib/store";
+import { useStore, type Order } from "@/lib/store";
 import { formatPrice } from "@/lib/utils";
-import { getAccessToken } from "@/lib/api/auth";
+import { getAccessToken, getCurrentUser } from "@/lib/api/auth";
 import {
   PageShell,
   Eyebrow,
@@ -37,9 +37,11 @@ const MAX_FAILURES = 5;
 
 export default function ConfirmationPage() {
   const { id } = useParams<{ id: string }>();
+  const { dispatch } = useStore();
   const [order, setOrder] = useState<Order | undefined>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const syncedPointsRef = useRef(false);
 
   const loadOrder = useCallback(async () => {
     const token = getAccessToken();
@@ -72,6 +74,22 @@ export default function ConfirmationPage() {
   }, [loadOrder]);
 
   const status = order?.status;
+
+  useEffect(() => {
+    if (!status || ["PENDING", "PAYMENT_FAILED", "CANCELLED"].includes(status)) {
+      return;
+    }
+    if (syncedPointsRef.current) return;
+
+    syncedPointsRef.current = true;
+    void getCurrentUser()
+      .then((freshUser) => {
+        dispatch({ type: "SET_USER", user: freshUser });
+      })
+      .catch((error) => {
+        console.error("Không thể cập nhật điểm sau thanh toán:", error);
+      });
+  }, [status, dispatch]);
 
   useEffect(() => {
     if (!id || !status || !POLL_STATUSES.includes(status)) return;

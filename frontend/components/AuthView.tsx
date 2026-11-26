@@ -1,12 +1,82 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useStore } from '@/lib/store';
+import { useStore, type User } from '@/lib/store';
 import { getProductImageUrl } from '@/lib/utils';
-import { authenticate, clearAuthSession, logout } from '@/lib/api/auth';
+import {
+  authenticate,
+  clearAuthSession,
+  getCurrentUser,
+  logout,
+} from '@/lib/api/auth';
 import { SpinnerIcon, StarIcon, btnPrimary, btnOutline, inputCls } from './ui';
+
+function ProfileView({
+  user,
+  dispatch,
+}: {
+  user: User;
+  dispatch: React.Dispatch<{ type: 'SET_USER'; user: User | null }>;
+}) {
+  const [refreshing, setRefreshing] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    getCurrentUser()
+      .then((freshUser) => {
+        if (active) dispatch({ type: 'SET_USER', user: freshUser });
+      })
+      .catch((error) => {
+        if (active) {
+          console.error('Không thể cập nhật thông tin tài khoản:', error);
+        }
+      })
+      .finally(() => {
+        if (active) setRefreshing(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [dispatch]);
+
+  return (
+    <main className="mx-auto flex max-w-md flex-col items-center px-5 pb-36 pt-16 text-center md:pb-20">
+      <span className="flex h-20 w-20 items-center justify-center rounded-full bg-accent font-display text-3xl font-semibold uppercase text-accent-foreground">
+        {user.name[0]}
+      </span>
+      <h1 className="mt-5 text-3xl font-semibold">{user.name}</h1>
+      <p className="mt-1 text-muted-foreground">{user.email}</p>
+      <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-semibold">
+        <StarIcon size={16} className="text-accent" />
+        {refreshing ? (
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <SpinnerIcon size={14} /> Đang cập nhật…
+          </span>
+        ) : (
+          <span>{user.loyaltyPoints.toLocaleString('vi-VN')} điểm tích luỹ</span>
+        )}
+      </p>
+      <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
+        <Link href="/orders" className={`${btnPrimary} flex-1`}>
+          Đơn hàng của tôi
+        </Link>
+        <button
+          onClick={async () => {
+            await logout();
+            dispatch({ type: 'SET_USER', user: null });
+          }}
+          className={`${btnOutline} flex-1`}
+        >
+          Đăng xuất
+        </button>
+      </div>
+    </main>
+  );
+}
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
@@ -20,33 +90,7 @@ export default function AuthPage() {
   const router = useRouter();
 
   if (state.user) {
-    return (
-      <main className="mx-auto flex max-w-md flex-col items-center px-5 pb-36 pt-16 text-center md:pb-20">
-        <span className="flex h-20 w-20 items-center justify-center rounded-full bg-accent font-display text-3xl font-semibold uppercase text-accent-foreground">
-          {state.user.name[0]}
-        </span>
-        <h1 className="mt-5 text-3xl font-semibold">{state.user.name}</h1>
-        <p className="mt-1 text-muted-foreground">{state.user.email}</p>
-        <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-semibold">
-          <StarIcon size={16} className="text-accent" />
-          {state.user.loyaltyPoints} điểm tích luỹ
-        </p>
-        <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row">
-          <Link href="/orders" className={`${btnPrimary} flex-1`}>
-            Đơn hàng của tôi
-          </Link>
-          <button
-            onClick={async () => {
-              await logout();
-              dispatch({ type: 'SET_USER', user: null });
-            }}
-            className={`${btnOutline} flex-1`}
-          >
-            Đăng xuất
-          </button>
-        </div>
-      </main>
-    );
+    return <ProfileView user={state.user} dispatch={dispatch} />;
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
