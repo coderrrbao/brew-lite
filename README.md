@@ -154,7 +154,9 @@ checked-in initial migration and generates the Prisma Client in
 
 To run the API and database in Docker Compose, use `docker compose up --build`.
 The backend container uses the Compose database hostname and starts after
-PostgreSQL is healthy.
+PostgreSQL is healthy. On startup, the backend container applies pending Prisma
+migrations before starting the API. It does not automatically run the seed
+script because that script clears existing application data.
 
 ## Project structure
 

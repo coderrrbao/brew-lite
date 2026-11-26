@@ -10,12 +10,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Bước 1.1: Quality Gates Backend (Dùng PostgreSQL Container Ảo)
   backend-checks:
-    name: "1.1 Backend Quality Gates (Lint & Test)"
+    name: Backend quality checks
     runs-on: ubuntu-latest
-    
-    # Kích hoạt Postgres Container ảo phục vụ riêng cho Test
+    timeout-minutes: 10
+
     services:
       postgres:
         image: postgres:16-alpine
@@ -32,107 +31,75 @@ jobs:
           --health-retries 5
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Backend Dependencies
-        run: cd backend && npm ci
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
 
-      - name: Generate Prisma Client
-        run: cd backend && npx prisma generate
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npm run db:generate
 
-      # Tạo cấu trúc bảng tức thì trên Database Container Ảo
-      - name: Push Schema to Test Database
+      - name: Push schema to test database
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
           DIRECT_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
         run: npx prisma db push
 
-      # Chạy 110 Unit & Integration Tests trên DB Ảo
-      - name: Run Backend Tests
+      - name: Run backend tests
         working-directory: backend
         env:
           DATABASE_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
           DIRECT_URL: "postgresql://postgres:password@localhost:5432/BrewLite_test?schema=public"
-        run: npm run test
+        run: npm test
 
-  # Bước 1.2: Quality Gates Frontend
   frontend-checks:
-    name: "1.2 Frontend Quality Gates (Lint & Build)"
+    name: Frontend quality checks
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    timeout-minutes: 10
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - name: Install Frontend Dependencies
-        run: cd frontend && npm ci
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
 
-      - name: Build Frontend Test
-        run: cd frontend && npm run build
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
-  # Bước 2: Deploy Production & Migration Database (THẬT trên Supabase & Render)
   deploy:
-    name: "2. Triển khai Production & Migration DB"
+    name: Deploy production
     needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: Trigger Render backend deploy
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
 
-      - name: Install Backend Dependencies for Migration
-        run: cd backend && npm ci
-
-      - name: Generate Prisma Client
-        run: cd backend && npx prisma generate
-
-      # 2.1 Run Migration & Seed dữ liệu chuẩn lên Supabase Cloud THẬT
-      - name: 🗄️ Run Safe Prisma Migration & Seed on Supabase
-        working-directory: backend
-        env:
-          DATABASE_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
-          DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+      - name: Smoke test production
         run: |
-          npx prisma migrate deploy
-          npx prisma db seed
-
-      # 2.2 Trigger Render Deploy Backend
-      - name: 🚀 Trigger Render Backend Deploy
-        run: |
-          echo "Triggering Render Webhook Deployment..."
-          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
-
-      # 2.3 Smoke Test & Health Check sau triển khai
-      - name: 🩺 Smoke Test & Health Check
-        run: |
-          echo "Chờ 30 giây cho Render backend khởi chạy phiên bản mới..."
-          sleep 30
-          
-          echo "1. Checking Backend Health Check (${{ secrets.RENDER_BACKEND_URL }})..."
-          curl -fsS "${{ secrets.RENDER_BACKEND_URL }}/health" || curl -fsS "${{ secrets.RENDER_BACKEND_URL }}/products" || echo "Backend ping completed"
-          
-          echo "2. Checking Frontend Production (${{ secrets.VERCEL_FRONTEND_URL }})..."
+          echo "Waiting 45 seconds for Render to start and run database migrations..."
+          sleep 45
+          curl -fsS "${{ secrets.RENDER_BACKEND_URL }}/products" > /dev/null
           curl -fsS "${{ secrets.VERCEL_FRONTEND_URL }}" > /dev/null
-          echo "🟢 Smoke Test Passed! Hệ thống Production hoạt động bình thường."
+          echo "Smoke tests passed."
 
-      # 2.4 Failure Handler & Rollback Guidance
-      - name: ⚠️ Deployment Failure Handler & Rollback Guidance
+      - name: Deployment failure guidance
         if: failure()
         run: |
-          echo "::error::Triển khai thất bại! Hãy kiểm tra log chi tiết ở trên."
-          echo "::warning::Thực hiện Rollback trên Vercel/Render Dashboard nếu cần khôi phục phiên bản trước."
+          echo "::error::Deployment failed. Review the logs above."
+          echo "::warning::Roll back from the Vercel or Render dashboard if needed."
