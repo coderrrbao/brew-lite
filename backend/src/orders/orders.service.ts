@@ -7,7 +7,6 @@
 import type { Order, OrderItem, OrderStatus } from "../generated/prisma/client";
 import { CreateOrderDto } from "./dto/create-order.dto";
 import { PrismaService } from "../prisma/prisma.service";
-import { ProductsService } from "../products/products.service";
 import { PromotionsService } from "../promotions/promotions.service";
 
 export type OrderWithRelations = Order & {
@@ -28,7 +27,6 @@ const allowedOrderTransitions: Record<OrderStatus, readonly OrderStatus[]> = {
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly products: ProductsService,
     private readonly promotion: PromotionsService,
   ) {}
 
@@ -42,10 +40,7 @@ export class OrdersService {
 
   async create(dto: CreateOrderDto, userId?: string): Promise<OrderWithRelations> {
     return this.prisma.$transaction(async (tx) => {
-      // 1. Giữ tồn kho bằng optimistic locking trong ProductsService
-      await this.products.reserveStock(tx, dto.items);
-
-      // 2. Truy vấn toàn bộ Product, SizeOption, Topping liên quan từ DB
+      // 1. Truy vấn toàn bộ Product, SizeOption, Topping liên quan từ DB
       const productIds = [...new Set(dto.items.map((i) => i.productId))];
       const sizeValues = [...new Set(dto.items.map((i) => i.size))];
       const toppingIds = [...new Set(dto.items.flatMap((i) => i.toppings))];
@@ -62,7 +57,7 @@ export class OrdersService {
       const sizeMap = new Map(dbSizes.map((s) => [s.value, s]));
       const toppingMap = new Map(dbToppings.map((t) => [t.id, t]));
 
-      // 3. Validate & tính lại đơn giá (unitPrice) + thành tiền (lineTotal) trên Server
+      // 2. Validate & tính lại đơn giá (unitPrice) + thành tiền (lineTotal) trên Server
       const preparedItems = dto.items.map((item) => {
         const product = productMap.get(item.productId);
         if (!product || !product.active) {
@@ -107,7 +102,7 @@ export class OrdersService {
 
       const subTotal = preparedItems.reduce((sum, i) => sum + i.lineTotal, 0);
 
-      // 4. Kiểm tra và tính giảm giá (nếu có mã khuyến mãi)
+      // 3. Kiểm tra và tính giảm giá (nếu có mã khuyến mãi)
       let discountAmount = 0;
       let appliedCode: string | null = null;
       if (dto.promotionCode) {
@@ -123,7 +118,7 @@ export class OrdersService {
 
       const total = Math.max(0, subTotal - discountAmount);
 
-      // 5. Tạo đơn ở trạng thái PENDING với giá chuẩn từ DB
+      // 4. Tạo đơn ở trạng thái PENDING. Tồn kho chỉ trừ khi thanh toán thành công.
       return tx.order.create({
         data: {
           userId: userId ?? null,
@@ -198,17 +193,9 @@ export class OrdersService {
       throw new ConflictException("Order status changed concurrently");
     }
 
-    // Nếu khách hàng tự hủy đơn (CANCELLED), tự động hoàn trả lại tồn kho sản phẩm
-    if (status === "CANCELLED" && order.status !== "CANCELLED") {
-      const orderItems = await this.prisma.orderItem.findMany({
-        where: { orderId: id },
-      });
-      for (const item of orderItems) {
-        await this.prisma.product.update({
-          where: { id: item.productId as string },
-          data: { stock: { increment: item.qty } },
-        }).catch(() => {});
-      }
+    // Chỉ hoàn kho nếu đơn đã được thanh toán; PENDING/PAYMENT_FAILED chưa trừ kho.
+    if (status === "CANCELLED" && order.status === "PAID") {
+      await this.restoreStock(id);
     }
 
     return this.prisma.order.findUniqueOrThrow({
@@ -240,9 +227,26 @@ export class OrdersService {
       throw new ConflictException("Order status changed concurrently");
     }
 
+    if (status === "CANCELLED" && order.status === "PAID") {
+      await this.restoreStock(id);
+    }
+
     return this.prisma.order.findUniqueOrThrow({
       where: { id },
       include: { items: true },
     });
+  }
+
+  private async restoreStock(orderId: string): Promise<void> {
+    const orderItems = await this.prisma.orderItem.findMany({
+      where: { orderId },
+    });
+    for (const item of orderItems) {
+      if (!item.productId) continue;
+      await this.prisma.product.update({
+        where: { id: item.productId },
+        data: { stock: { increment: item.qty } },
+      });
+    }
   }
 }
